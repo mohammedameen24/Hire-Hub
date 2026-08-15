@@ -17,6 +17,11 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
+// ── Trust proxy (required for Render/cloud deployments) ──────
+// Render sits behind a load balancer that sets X-Forwarded-For.
+// Without this, express-rate-limit throws a validation error.
+app.set('trust proxy', 1);
+
 // ── Security Headers ────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
