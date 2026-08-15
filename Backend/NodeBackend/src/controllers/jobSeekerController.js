@@ -4,9 +4,8 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
-const fs = require('fs');
 const { parseResume } = require('../services/resumeParserService');
-const { isPdfMagicBytes, useCloudinary } = require('../middleware/uploadMiddleware');
+const { isPdfMagicBytes, useCloudinary, uploadBufferToCloudinary, saveBufferToDisk } = require('../middleware/uploadMiddleware');
 const { getJobRecommendations } = require('../services/recommendationService');
 // GET /api/jobseeker/profile
 const getProfile = asyncHandler(async (req, res) => {
@@ -69,26 +68,26 @@ const uploadResume = asyncHandler(async (req, res) => {
     return sendError(res, 'Please upload a PDF file.', 400);
   }
 
-  // Magic-bytes check only applies to local disk storage
-  // Cloudinary uploads are already validated remotely
-  if (!useCloudinary) {
-    if (!isPdfMagicBytes(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-      return sendError(res, 'Uploaded file is not a valid PDF.', 400);
-    }
+  const buffer = req.file.buffer;
+
+  // Validate magic bytes on the buffer
+  if (!isPdfMagicBytes(buffer)) {
+    return sendError(res, 'Uploaded file is not a valid PDF.', 400);
   }
 
-  // Cloudinary gives us req.file.path as the full secure URL
-  // Local disk gives us req.file.filename which we serve via /api/files/:filename
-  const resumeUrl = useCloudinary
-    ? req.file.path
-    : `/api/files/${req.file.filename}`;
+  // Parse the PDF buffer directly — works for both Cloudinary and local modes
+  const { rawText, parsedData } = await parseResume(buffer);
 
-  // Parse resume: Cloudinary gives a URL (req.file.path), local gives a file path
-  const { rawText, parsedData } = await parseResume(
-    useCloudinary ? req.file.path : req.file.path,
-    useCloudinary
-  );
+  // Store the file: Cloudinary in production, local disk in dev
+  let resumeUrl;
+  if (useCloudinary) {
+    const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    resumeUrl = await uploadBufferToCloudinary(buffer, 'hirehub/resumes', uniqueName);
+  } else {
+    const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
+    const filename = saveBufferToDisk(buffer, uniqueName);
+    resumeUrl = `/api/files/${filename}`;
+  }
 
   let profile = await JobSeekerProfile.findOne({ userId: req.user.id });
   if (!profile) {
@@ -234,7 +233,33 @@ const uploadCertificate = asyncHandler(async (req, res) => {
     return sendError(res, 'Invalid certification index.', 400);
   }
 
-  const certUrl = `/api/files/${req.file.filename}`;
+  const buffer = req.file.buffer;
+  const ext = require('path').extname(req.file.originalname).toLowerCase() || '.pdf';
+  const isPdf = ext === '.pdf' || req.file.mimetype === 'application/pdf';
+  const uniqueName = `cert-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+
+  let certUrl;
+  if (useCloudinary) {
+    certUrl = await new Promise((resolve, reject) => {
+      const stream = require('../middleware/uploadMiddleware').cloudinary.uploader.upload_stream(
+        {
+          folder: 'hirehub/certificates',
+          resource_type: isPdf ? 'raw' : 'image',
+          format: isPdf ? 'pdf' : undefined,
+          public_id: uniqueName,
+          unique_filename: true,
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result.secure_url);
+        }
+      );
+      stream.end(buffer);
+    });
+  } else {
+    const filename = saveBufferToDisk(buffer, `${uniqueName}${ext}`);
+    certUrl = `/api/files/${filename}`;
+  }
 
   let profile = await JobSeekerProfile.findOne({ userId: req.user.id });
   if (!profile) {

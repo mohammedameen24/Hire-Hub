@@ -1,41 +1,14 @@
 const pdfParse = require('pdf-parse');
-const fs = require('fs').promises;
-const https = require('https');
-const http = require('http');
 const { generateStructuredJSON } = require('./geminiService');
 
 /**
- * Fetches a PDF from a URL and returns it as a Buffer.
- */
-function fetchUrl(url) {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
-    client.get(url, (res) => {
-      const chunks = [];
-      res.on('data', (chunk) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-      res.on('error', reject);
-    }).on('error', reject);
-  });
-}
-
-/**
- * Extracts raw text from a PDF (local path or remote URL),
- * then calls Gemini to analyze and extract structured JSON resume data.
- * Retries once on transient failures before falling back.
+ * Parses a PDF from a Buffer, then calls Gemini for structured analysis.
+ * Retries once on transient Gemini failures before falling back.
  *
- * @param {string} filePathOrUrl - Local file path or Cloudinary/remote URL
- * @param {boolean} isRemote     - True when filePathOrUrl is a remote URL
+ * @param {Buffer} buffer - PDF file buffer
  */
-async function parseResume(filePathOrUrl, isRemote = false) {
-  let fileBuffer;
-  if (isRemote) {
-    fileBuffer = await fetchUrl(filePathOrUrl);
-  } else {
-    fileBuffer = await fs.readFile(filePathOrUrl);
-  }
-
-  const pdfData = await pdfParse(fileBuffer);
+async function parseResume(buffer) {
+  const pdfData = await pdfParse(buffer);
   const rawText = pdfData.text?.trim() || '';
 
   if (!rawText) {
