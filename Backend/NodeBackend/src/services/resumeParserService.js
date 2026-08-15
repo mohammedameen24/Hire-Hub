@@ -58,7 +58,12 @@ Return ONLY a valid JSON object with the following structure (no markdown, no ex
       const parsedData = await generateStructuredJSON(prompt);
       return { rawText, parsedData };
     } catch (err) {
-      console.error(`[ResumeParser] Gemini attempt ${attempt} failed:`, err.message);
+      console.error(`[ResumeParser] Gemini attempt ${attempt}/2 failed:`, {
+        message: err.message,
+        status: err.status,
+        code: err.code,
+        timestamp: new Date().toISOString(),
+      });
       if (attempt < 2) {
         // Brief pause before retry
         await new Promise((resolve) => setTimeout(resolve, 1500));
