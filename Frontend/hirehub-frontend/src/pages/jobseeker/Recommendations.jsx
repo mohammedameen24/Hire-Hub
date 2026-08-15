@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import Card from '../../components/ui/Card';
-import Badge from '../../components/ui/Badge';
 import { CardSkeleton } from '../../components/ui/Spinner';
 
 export default function Recommendations() {
@@ -82,12 +81,6 @@ export default function Recommendations() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="font-semibold text-slate-800 truncate">{rec.title || rec.job_title}</h3>
-                      <Badge
-                        variant={score >= 80 ? 'success' : score >= 50 ? 'accent' : 'warning'}
-                        size="sm"
-                      >
-                        {Math.round(score)}% match
-                      </Badge>
                     </div>
                     <p className="text-sm text-slate-500">{rec.company}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -114,25 +107,11 @@ export default function Recommendations() {
                     </div>
                   </div>
 
-                  {/* Score bar */}
-                  <div className="sm:w-24 flex-shrink-0">
-                    <div className="text-right mb-1">
-                      <span className="text-xl font-bold text-slate-800">{Math.round(score)}%</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${score}%`,
-                          backgroundColor:
-                            score >= 80
-                              ? 'var(--color-success-500)'
-                              : score >= 50
-                                ? 'var(--color-accent-500)'
-                                : 'var(--color-warn-500)',
-                        }}
-                      />
-                    </div>
+                  {/* Job type */}
+                  <div className="sm:w-24 flex-shrink-0 text-right">
+                    {rec.job_type && (
+                      <span className="text-xs text-slate-400">{rec.job_type}</span>
+                    )}
                   </div>
                 </Card>
               </Link>

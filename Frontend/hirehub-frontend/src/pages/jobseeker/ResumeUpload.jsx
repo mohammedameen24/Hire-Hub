@@ -41,6 +41,8 @@ export default function ResumeUpload() {
             matched_skills: parsed.matched_skills || profile.skills || [],
             missing_skills: parsed.missing_skills || [],
             suggestions: parsed.suggestions || [],
+            ai_analysis_failed: parsed.ai_analysis_failed || false,
+            ai_failure_reason: parsed.ai_failure_reason || null,
           });
         }
       } catch (err) {
@@ -141,30 +143,14 @@ export default function ResumeUpload() {
       )}
 
       {!isOnboarding && (
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Resume</h1>
-            <p className="text-slate-500 mt-1">Upload your resume for AI-powered analysis and job matching.</p>
-          </div>
-          {/* Persistent view button when resume already saved */}
-          {analysis?.resume_url && (
-            <a
-              href={getStorageUrl(analysis.resume_url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-accent-600 bg-accent-50 border border-accent-200 rounded-lg hover:bg-accent-100 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              View Saved Resume 📄
-            </a>
-          )}
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Resume</h1>
+          <p className="text-slate-500 mt-1">Upload your resume for AI-powered analysis and job matching.</p>
         </div>
       )}
 
-      {/* Upload zone */}
-      <Card>
+      {/* Upload zone — hidden once a resume is already uploaded */}
+      <Card className={analysis?.resume_url ? 'hidden' : ''}>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -310,9 +296,40 @@ export default function ResumeUpload() {
 
           <h2 className="text-lg font-semibold text-slate-800">AI Analysis Results</h2>
 
+          {/* AI analysis failed banner */}
+          {analysis.ai_analysis_failed && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start justify-between gap-4 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">
+                    {analysis.ai_failure_reason === 'no_text'
+                      ? 'Resume text could not be extracted'
+                      : 'AI analysis could not be completed'}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {analysis.ai_failure_reason === 'no_text'
+                      ? 'Your PDF may be image-based or scanned. Try uploading a text-based PDF for full AI analysis.'
+                      : 'The AI service was temporarily unavailable. Your resume was saved. Try re-uploading to run the analysis again.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setFile(null); setAnalysis(null); setUploadProgress(0); }}
+                className="text-xs font-semibold text-amber-700 hover:text-amber-900 whitespace-nowrap border border-amber-300 bg-white px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
           <div className="grid sm:grid-cols-3 gap-6">
             {/* Match score */}
-            {matchScore !== undefined && (
+            {matchScore !== undefined && !analysis.ai_analysis_failed && (
               <Card className="flex flex-col items-center justify-center py-8">
                 <div className="relative w-28 h-28 mb-4">
                   <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
@@ -339,6 +356,7 @@ export default function ResumeUpload() {
             )}
 
             {/* Matched skills */}
+            {!analysis.ai_analysis_failed && (
             <Card>
               <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-success-500" />
@@ -356,8 +374,10 @@ export default function ResumeUpload() {
                 )}
               </div>
             </Card>
+            )}
 
             {/* Missing skills */}
+            {!analysis.ai_analysis_failed && (
             <Card>
               <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-warn-500" />
@@ -375,14 +395,15 @@ export default function ResumeUpload() {
                 )}
               </div>
             </Card>
+            )}
           </div>
 
-          {/* Improvement suggestions */}
-          {analysis.suggestions && analysis.suggestions.length > 0 && (
+          {/* Improvement suggestions — only show when AI analysis succeeded and has real suggestions */}
+          {!analysis.ai_analysis_failed && analysis.suggestions?.filter(s => s !== 'Could not run full AI analysis on resume.').length > 0 && (
             <Card>
               <h3 className="text-sm font-semibold text-slate-700 mb-3">Improvement Suggestions</h3>
               <ul className="space-y-2">
-                {analysis.suggestions.map((suggestion, i) => (
+                {analysis.suggestions.filter(s => s !== 'Could not run full AI analysis on resume.').map((suggestion, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
                     <svg className="w-4 h-4 mt-0.5 text-accent-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />

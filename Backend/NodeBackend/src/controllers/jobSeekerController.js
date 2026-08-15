@@ -106,6 +106,8 @@ const uploadResume = asyncHandler(async (req, res) => {
     matched_skills: parsedData.matched_skills || parsedData.skills || [],
     missing_skills: parsedData.missing_skills || [],
     suggestions: parsedData.suggestions || [],
+    ai_analysis_failed: parsedData.ai_analysis_failed || false,
+    ai_failure_reason: parsedData.ai_failure_reason || null,
   });
 });
 

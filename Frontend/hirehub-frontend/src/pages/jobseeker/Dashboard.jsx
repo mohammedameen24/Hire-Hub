@@ -466,9 +466,6 @@ upd        <div className="grid sm:grid-cols-3 gap-3">
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <Badge variant="accent" size="sm">
-                          {Math.round(job.score || 0)}% match
-                        </Badge>
                         {job.job_type && (
                           <span className="text-xs text-slate-400">{job.job_type}</span>
                         )}
