@@ -107,11 +107,12 @@ app.use('/api/admin', adminRoutes);
 // ── Protected file serving (FIX 6) ──────────────────────────
 // Resume files require a valid JWT — served via /api/files/:filename
 const { protect } = require('./middleware/authMiddleware');
+const { uploadDir } = require('./middleware/uploadMiddleware');
 const fs = require('fs');
 
 app.get('/api/files/:filename', protect, (req, res) => {
   const filename = path.basename(req.params.filename); // prevent path traversal
-  const filePath = path.join(__dirname, '../uploads', filename);
+  const filePath = path.join(uploadDir, filename);
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ success: false, message: 'File not found.' });

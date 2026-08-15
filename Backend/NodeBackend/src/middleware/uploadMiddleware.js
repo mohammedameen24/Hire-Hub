@@ -2,27 +2,33 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../../uploads');
+// ── Upload directory ─────────────────────────────────────────
+// In production on Render, set UPLOAD_DIR to the mounted disk path
+// e.g. UPLOAD_DIR=/var/data/uploads  (must match your Render disk mount point)
+// Locally falls back to <project-root>/uploads
+const uploadDir = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.join(__dirname, '../../uploads');
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+// Export so other modules (e.g. app.js file server) use the same path
+module.exports.uploadDir = uploadDir;
+
+// ── Resume storage ───────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
+  filename: (_req, _file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    // FIX 5 — Always force .pdf extension regardless of original filename
     cb(null, `resume-${uniqueSuffix}.pdf`);
   },
 });
 
-// FIX 5 — Validate by magic bytes after upload, reject if not a real PDF
 const fileFilter = (_req, file, cb) => {
-  // Only accept files claiming to be PDF — magic byte check happens post-upload
   const isPdfMime = file.mimetype === 'application/pdf';
   const isPdfExt = file.originalname.toLowerCase().endsWith('.pdf');
-
   if (isPdfMime || isPdfExt) {
     cb(null, true);
   } else {
@@ -33,8 +39,7 @@ const fileFilter = (_req, file, cb) => {
 };
 
 /**
- * FIX 5 — Validate that an uploaded file actually starts with the PDF magic bytes (%PDF).
- * Call this after multer has saved the file. Returns true if valid.
+ * Validate that an uploaded file actually starts with PDF magic bytes (%PDF).
  */
 function isPdfMagicBytes(filePath) {
   try {
@@ -42,7 +47,6 @@ function isPdfMagicBytes(filePath) {
     const buf = Buffer.alloc(4);
     fs.readSync(fd, buf, 0, 4, 0);
     fs.closeSync(fd);
-    // PDF magic bytes: 25 50 44 46 = %PDF
     return buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
   } catch {
     return false;
@@ -52,10 +56,10 @@ function isPdfMagicBytes(filePath) {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-// ── Certificate upload (PDF or image) ───────────────────────
+// ── Certificate storage ──────────────────────────────────────
 const certStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_req, file, cb) => {
@@ -84,4 +88,4 @@ const uploadCert = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 });
 
-module.exports = { upload, uploadCert, isPdfMagicBytes };
+module.exports = { upload, uploadCert, isPdfMagicBytes, uploadDir };
