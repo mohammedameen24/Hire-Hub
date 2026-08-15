@@ -48,21 +48,24 @@ const upload = multer({
 
 /**
  * Uploads a buffer to Cloudinary and returns the secure URL.
+ * Uses resource_type 'raw' for proper PDF storage, with fl_attachment:false
+ * so browsers receive the file inline rather than as a download.
  */
 function uploadBufferToCloudinary(buffer, folder, filename) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: 'image', // 'image' type supports PDF and allows browser rendering
-        format: 'pdf',
-        public_id: filename,
+        resource_type: 'raw',
+        public_id: `${filename}.pdf`,
         use_filename: false,
         unique_filename: true,
       },
       (error, result) => {
         if (error) return reject(error);
-        resolve(result.secure_url);
+        // Replace /raw/upload/ with /raw/upload/fl_attachment:false/ for inline browser display
+        const url = result.secure_url.replace('/raw/upload/', '/raw/upload/fl_attachment:false/');
+        resolve(url);
       }
     );
     stream.end(buffer);

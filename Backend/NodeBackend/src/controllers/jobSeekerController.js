@@ -244,14 +244,15 @@ const uploadCertificate = asyncHandler(async (req, res) => {
       const stream = require('../middleware/uploadMiddleware').cloudinary.uploader.upload_stream(
         {
           folder: 'hirehub/certificates',
-          resource_type: 'image', // supports both PDF and images
-          format: isPdf ? 'pdf' : undefined,
-          public_id: uniqueName,
+          resource_type: isPdf ? 'raw' : 'image',
+          public_id: isPdf ? `${uniqueName}.pdf` : uniqueName,
           unique_filename: true,
         },
         (error, result) => {
           if (error) return reject(error);
-          resolve(result.secure_url);
+          let url = result.secure_url;
+          if (isPdf) url = url.replace('/raw/upload/', '/raw/upload/fl_attachment:false/');
+          resolve(url);
         }
       );
       stream.end(buffer);
