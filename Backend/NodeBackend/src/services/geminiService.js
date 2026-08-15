@@ -48,3 +48,5 @@ async function generateStructuredJSON(prompt) {
     throw error;
   }
 }
+
+module.exports = { generateStructuredJSON };
