@@ -342,7 +342,7 @@ export default function JSDashboard() {
       {/* Quick Actions — 5 cards */}
       <div>
         <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h2>
-        <div className="grid sm:grid-cols-3 gap-3">
+upd        <div className="grid sm:grid-cols-3 gap-3">
           {quickActions.map((action) => (
             <Link key={action.to} to={action.to} className="group">
               <Card hover padding="md" className="flex flex-col items-center text-center gap-3 h-full py-5">
