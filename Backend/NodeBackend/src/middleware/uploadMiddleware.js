@@ -54,7 +54,7 @@ function uploadBufferToCloudinary(buffer, folder, filename) {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: 'raw',
+        resource_type: 'image', // 'image' type supports PDF and allows browser rendering
         format: 'pdf',
         public_id: filename,
         use_filename: false,

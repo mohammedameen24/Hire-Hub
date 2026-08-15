@@ -244,7 +244,7 @@ const uploadCertificate = asyncHandler(async (req, res) => {
       const stream = require('../middleware/uploadMiddleware').cloudinary.uploader.upload_stream(
         {
           folder: 'hirehub/certificates',
-          resource_type: isPdf ? 'raw' : 'image',
+          resource_type: 'image', // supports both PDF and images
           format: isPdf ? 'pdf' : undefined,
           public_id: uniqueName,
           unique_filename: true,
