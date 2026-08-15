@@ -16,12 +16,7 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
  */
 async function generateStructuredJSON(prompt) {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const result = await model.generateContent(prompt);
-    let text = result.response.text().trim();
-
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent(prompt);
     let text = result.response.text().trim();
 
