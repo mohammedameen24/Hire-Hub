@@ -32,11 +32,6 @@ function fileNameFromUrl(url) {
   return m ? m[1] : null;
 }
 
-// Inline-display transform for PDFs (same as uploadMiddleware.uploadBufferToCloudinary)
-function buildPdfUrl(url) {
-  return url.replace(/\/raw\/upload\/v/, '/raw/upload/fl_attachment:false/v');
-}
-
 function uploadToCloudinary(filePath, folder, isImage) {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
@@ -50,9 +45,7 @@ function uploadToCloudinary(filePath, folder, isImage) {
       },
       (error, result) => {
         if (error) return reject(error);
-        let url = result.secure_url;
-        if (!isImage) url = buildPdfUrl(url);
-        resolve(url);
+        resolve(result.secure_url);
       }
     );
   });

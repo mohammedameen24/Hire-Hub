@@ -233,9 +233,7 @@ const uploadCertificate = asyncHandler(async (req, res) => {
         },
         (error, result) => {
           if (error) return reject(error);
-          let url = result.secure_url;
-          if (isPdf) url = url.replace('/raw/upload/', '/raw/upload/fl_attachment:false/');
-          resolve(url);
+          resolve(result.secure_url);
         }
       );
       stream.end(buffer);
