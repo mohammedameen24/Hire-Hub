@@ -9,16 +9,28 @@ import { useAuthStore } from '../store/authStore';
  */
 export function getStorageUrl(path) {
   if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
-  }
 
   const backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/api$/, '');
 
-  // Rewrite legacy /uploads/ paths to go through the authenticated /api/files/ endpoint
-  const normalizedPath = path.replace(/^\/uploads\//, '/api/files/');
+  // Normalize to a backend-relative API path.
+  let rel;
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    // Absolute URL pointing at our own backend — keep routing it through the
+    // authenticated /api/files endpoint so the token gets attached below.
+    // External URLs (e.g. Cloudinary) are public and returned untouched.
+    if (path.startsWith(`${backendBase}/`)) {
+      rel = path.slice(backendBase.length);
+    } else {
+      return path;
+    }
+  } else {
+    rel = path;
+  }
 
-  const cleanPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+  // Rewrite legacy /uploads/ paths to go through the authenticated /api/files/ endpoint
+  rel = rel.replace(/^\/uploads\//, '/api/files/');
+
+  const cleanPath = rel.startsWith('/') ? rel : `/${rel}`;
   let fullUrl = `${backendBase}${cleanPath}`;
 
   // Attach auth token if available so direct browser links (<a> tags) pass auth

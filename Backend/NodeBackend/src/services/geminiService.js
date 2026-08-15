@@ -1,13 +1,10 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { GEMINI_API_KEY } = require('../config/env');
 
-// Validate API key on startup
-if (!GEMINI_API_KEY) {
-  console.error('❌ GEMINI_API_KEY is not set in environment variables');
-  process.exit(1);
-}
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+// Create the client lazily; the key is optional and callers (ranking,
+// recommendation, match score) all catch errors and fall back to
+// programmatic logic, so a missing key must not kill the server.
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 /**
  * Calls Gemini with a prompt and parses the response as strict JSON.
@@ -15,6 +12,9 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
  * Retries once on parse failure.
  */
 async function generateStructuredJSON(prompt) {
+  if (!genAI) {
+    throw new Error('GEMINI_API_KEY is not configured');
+  }
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent(prompt);

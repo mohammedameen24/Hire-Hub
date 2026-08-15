@@ -75,13 +75,10 @@ const uploadResume = asyncHandler(async (req, res) => {
     return sendError(res, 'Uploaded file is not a valid PDF.', 400);
   }
 
-  // Parse the PDF buffer directly — works for both Cloudinary and local modes
-  const { rawText, parsedData } = await parseResume(buffer);
-
   // Store the file: Cloudinary in production, local disk in dev
   let resumeUrl;
   if (useCloudinary) {
-    const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
     resumeUrl = await uploadBufferToCloudinary(buffer, 'hirehub/resumes', uniqueName);
   } else {
     const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
@@ -95,27 +92,13 @@ const uploadResume = asyncHandler(async (req, res) => {
   }
 
   profile.resume_url = resumeUrl;
-  profile.resume_text = rawText;
-  profile.parsed_resume_data = parsedData;
-
-  if (parsedData.skills && parsedData.skills.length > 0) {
-    // Merge new skills with existing skills without duplicates
-    const combinedSkills = new Set([...(profile.skills || []), ...parsedData.skills]);
-    profile.skills = Array.from(combinedSkills);
-  }
 
   await profile.save();
 
-  // Return the analysis structure expected by ResumeUpload.jsx
+  // Return simple success response
   return sendSuccess(res, {
     resume_url: resumeUrl,
-    match_score: parsedData.match_score || 80,
-    score: parsedData.match_score || 80,
-    matched_skills: parsedData.matched_skills || parsedData.skills || [],
-    missing_skills: parsedData.missing_skills || [],
-    suggestions: parsedData.suggestions || [],
-    ai_analysis_failed: parsedData.ai_analysis_failed || false,
-    ai_failure_reason: parsedData.ai_failure_reason || null,
+    message: 'Resume uploaded successfully!',
   });
 });
 

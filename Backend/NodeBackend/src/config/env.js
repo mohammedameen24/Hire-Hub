@@ -1,12 +1,32 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const required = ['MONGO_URI', 'JWT_SECRET', 'GEMINI_API_KEY', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const required = ['MONGO_URI', 'JWT_SECRET'];
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`❌ Missing required env var: ${key}`);
     process.exit(1);
   }
+}
+
+// Cloudinary is optional — when all three keys are absent the app falls back
+// to local disk storage (see uploadMiddleware useCloudinary). Warn if only
+// part of the config is set, since that is almost always a mistake.
+const cloudinaryKeys = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const cloudinarySet = cloudinaryKeys.filter((k) => process.env[k]);
+if (cloudinarySet.length > 0 && cloudinarySet.length < cloudinaryKeys.length) {
+  console.warn(
+    `⚠️ Partial Cloudinary configuration detected (${cloudinarySet.join(', ')}). ` +
+      'Set all of CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to use Cloudinary, ' +
+      'or remove all of them to use local file storage.'
+  );
+}
+
+// Gemini API is optional — services fall back to programmatic matching when absent.
+if (process.env.GEMINI_API_KEY) {
+  console.log('✅ Gemini API key configured.');
+} else {
+  console.warn('⚠️ GEMINI_API_KEY not set. AI features will use programmatic fallbacks.');
 }
 
 // FIX 3 — Enforce minimum JWT secret strength (32 chars minimum)
