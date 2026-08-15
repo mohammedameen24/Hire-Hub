@@ -49,7 +49,7 @@ const upload = multer({
 /**
  * Uploads a buffer to Cloudinary and returns the secure URL.
  * Uses resource_type 'raw' for proper PDF storage.
- * Cloudinary serves raw PDFs inline by default.
+ * Adds fl_attachment:false transformation to display PDF inline in browser instead of downloading.
  */
 function uploadBufferToCloudinary(buffer, folder, filename) {
   return new Promise((resolve, reject) => {
@@ -63,8 +63,13 @@ function uploadBufferToCloudinary(buffer, folder, filename) {
       },
       (error, result) => {
         if (error) return reject(error);
-        // Return the secure URL as-is - Cloudinary serves PDFs inline by default
-        resolve(result.secure_url);
+        // Add transformation to display PDF inline: fl_attachment:false
+        // Insert transformation between /raw/upload/ and /version/
+        const url = result.secure_url.replace(
+          /\/raw\/upload\/v/,
+          '/raw/upload/fl_attachment:false/v'
+        );
+        resolve(url);
       }
     );
     stream.end(buffer);
