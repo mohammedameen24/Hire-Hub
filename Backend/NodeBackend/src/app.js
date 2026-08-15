@@ -104,33 +104,36 @@ app.use('/api/employer', employerRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
 
-// ── Protected file serving (FIX 6) ──────────────────────────
-// Resume files require a valid JWT — served via /api/files/:filename
+// ── Protected file serving (local disk only) ─────────────────
+// In production with Cloudinary, resume_url is a direct Cloudinary URL
+// so this route is only active when Cloudinary is not configured
 const { protect } = require('./middleware/authMiddleware');
-const { uploadDir } = require('./middleware/uploadMiddleware');
+const { uploadDir, useCloudinary } = require('./middleware/uploadMiddleware');
 const fs = require('fs');
 
-app.get('/api/files/:filename', protect, (req, res) => {
-  const filename = path.basename(req.params.filename); // prevent path traversal
-  const filePath = path.join(uploadDir, filename);
+if (!useCloudinary) {
+  app.get('/api/files/:filename', protect, (req, res) => {
+    const filename = path.basename(req.params.filename); // prevent path traversal
+    const filePath = path.join(uploadDir, filename);
 
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ success: false, message: 'File not found.' });
-  }
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'File not found.' });
+    }
 
-  if (filename.endsWith('.pdf')) {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline');
-  } else if (/\.(jpg|jpeg)$/i.test(filename)) {
-    res.setHeader('Content-Type', 'image/jpeg');
-  } else if (/\.png$/i.test(filename)) {
-    res.setHeader('Content-Type', 'image/png');
-  } else if (/\.webp$/i.test(filename)) {
-    res.setHeader('Content-Type', 'image/webp');
-  }
+    if (filename.endsWith('.pdf')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+    } else if (/\.(jpg|jpeg)$/i.test(filename)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (/\.png$/i.test(filename)) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (/\.webp$/i.test(filename)) {
+      res.setHeader('Content-Type', 'image/webp');
+    }
 
-  res.sendFile(filePath);
-});
+    res.sendFile(filePath);
+  });
+}
 
 // ── Fallback unhandled route handler ─────────────────────────
 app.use('*', (req, res) => {

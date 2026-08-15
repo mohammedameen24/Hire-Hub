@@ -6,7 +6,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 const fs = require('fs');
 const { parseResume } = require('../services/resumeParserService');
-const { isPdfMagicBytes } = require('../middleware/uploadMiddleware');
+const { isPdfMagicBytes, useCloudinary } = require('../middleware/uploadMiddleware');
 const { getJobRecommendations } = require('../services/recommendationService');
 // GET /api/jobseeker/profile
 const getProfile = asyncHandler(async (req, res) => {
@@ -69,17 +69,26 @@ const uploadResume = asyncHandler(async (req, res) => {
     return sendError(res, 'Please upload a PDF file.', 400);
   }
 
-  // FIX 5 — Validate magic bytes to prevent spoofed MIME uploads
-  if (!isPdfMagicBytes(req.file.path)) {
-    fs.unlinkSync(req.file.path); // delete the invalid file
-    return sendError(res, 'Uploaded file is not a valid PDF.', 400);
+  // Magic-bytes check only applies to local disk storage
+  // Cloudinary uploads are already validated remotely
+  if (!useCloudinary) {
+    if (!isPdfMagicBytes(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+      return sendError(res, 'Uploaded file is not a valid PDF.', 400);
+    }
   }
 
-  const filePath = req.file.path;
-  const resumeUrl = `/api/files/${req.file.filename}`;
+  // Cloudinary gives us req.file.path as the full secure URL
+  // Local disk gives us req.file.filename which we serve via /api/files/:filename
+  const resumeUrl = useCloudinary
+    ? req.file.path
+    : `/api/files/${req.file.filename}`;
 
-  // Parse resume with pdf-parse and Gemini
-  const { rawText, parsedData } = await parseResume(filePath);
+  // Parse resume: Cloudinary gives a URL (req.file.path), local gives a file path
+  const { rawText, parsedData } = await parseResume(
+    useCloudinary ? req.file.path : req.file.path,
+    useCloudinary
+  );
 
   let profile = await JobSeekerProfile.findOne({ userId: req.user.id });
   if (!profile) {
