@@ -16,7 +16,7 @@ export default function DashboardLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main content area */}
-      <main className="md:ml-[var(--spacing-sidebar)] pt-6 pb-12 px-4 md:px-8">
+      <main className="md:ml-[var(--spacing-sidebar)] pt-4 sm:pt-6 pb-12 px-3.5 sm:px-6 md:px-8">
         <div className="max-w-6xl mx-auto">
           <Outlet />
         </div>

@@ -75,15 +75,15 @@ export default function EMDashboard() {
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Employer Dashboard</h1>
-          <p className="text-slate-500 mt-1">Manage your jobs and review candidates.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Employer Dashboard</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">Manage your jobs and review candidates.</p>
         </div>
         <Link
           to="/employer/post-job"
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-accent-600 rounded-lg hover:bg-accent-700 transition-colors shadow-sm"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-accent-600 rounded-xl hover:bg-accent-700 transition-colors shadow-sm w-full sm:w-auto"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -93,17 +93,17 @@ export default function EMDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-28 rounded-xl" />)
+          ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-24 sm:h-28 rounded-xl" />)
           : statCards.map((s) => (
-              <Card key={s.label} padding="md" hover>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">{s.label}</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">{s.value}</p>
+              <Card key={s.label} padding="none" hover className="p-3.5 sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{s.label}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-0.5 sm:mt-1">{s.value}</p>
                   </div>
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}>
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${s.color}`}>
                     {s.icon}
                   </div>
                 </div>

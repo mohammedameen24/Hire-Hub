@@ -28,13 +28,13 @@ export default function Navbar({ onToggleSidebar }) {
       </button>
 
       {/* Logo */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 bg-accent-600 rounded-lg flex items-center justify-center">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 bg-accent-600 rounded-lg flex items-center justify-center shadow-xs">
           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.193 23.193 0 0112 15c-3.183 0-6.22-.64-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <span className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">
+        <span className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">
           Hire<span className="text-accent-600">Hub</span>
         </span>
       </div>

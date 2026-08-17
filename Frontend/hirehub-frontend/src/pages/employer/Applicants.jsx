@@ -476,13 +476,13 @@ export default function Applicants() {
         </div>
 
         {/* View toggle */}
-        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 overflow-x-auto max-w-full">
           {viewModes.map((vm) => (
             <button
               key={vm.key}
               id={`view-mode-${vm.key}`}
               onClick={() => setViewMode(vm.key)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                 viewMode === vm.key
                   ? 'bg-white text-slate-800 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'

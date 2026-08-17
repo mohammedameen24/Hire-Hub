@@ -184,20 +184,20 @@ export default function JSDashboard() {
       )}
 
       {/* Hero Welcome Banner */}
-      <div className="bg-gradient-to-r from-accent-600 to-accent-800 rounded-2xl p-6 md:p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-1/2 w-48 h-48 bg-white/5 rounded-full translate-y-1/2" />
-        <div className="relative z-10 flex items-end justify-between gap-4 flex-wrap">
+      <div className="bg-gradient-to-r from-accent-600 to-accent-800 rounded-2xl p-5 sm:p-6 md:p-8 text-white relative overflow-hidden shadow-sm">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+        <div className="absolute bottom-0 left-1/2 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 pointer-events-none" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <p className="text-accent-200 text-sm font-medium">{getGreeting()}</p>
-            <h1 className="text-2xl md:text-3xl font-bold mt-1">{user?.name || 'Welcome'}!</h1>
-            <p className="text-accent-100 mt-2 max-w-lg text-sm">
+            <p className="text-accent-200 text-xs sm:text-sm font-medium">{getGreeting()}</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{user?.name || 'Welcome'}!</h1>
+            <p className="text-accent-100 mt-1.5 sm:mt-2 max-w-lg text-xs sm:text-sm leading-relaxed">
               Here&apos;s your job search overview. Keep going — your next opportunity is closer than you think.
             </p>
           </div>
           <Link
             to="/jobseeker/jobs"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-accent-700 font-semibold text-sm rounded-xl hover:bg-accent-50 transition-colors shadow-sm flex-shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-accent-700 font-semibold text-sm rounded-xl hover:bg-accent-50 transition-colors shadow-sm w-full sm:w-auto flex-shrink-0"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -210,14 +210,14 @@ export default function JSDashboard() {
       {/* Upcoming Scheduled Interviews for Jobseeker */}
       {!loading && allApps.filter((a) => a.status === 'interview').length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
               <span>Upcoming Scheduled Interviews 📅</span>
               <Badge variant="accent" size="sm">
                 {allApps.filter((a) => a.status === 'interview').length}
               </Badge>
             </h2>
-            <Link to="/jobseeker/applications" className="text-sm font-semibold text-accent-600 hover:text-accent-700">
+            <Link to="/jobseeker/applications" className="text-xs sm:text-sm font-semibold text-accent-600 hover:text-accent-700 self-start sm:self-auto">
               View All Applications →
             </Link>
           </div>
@@ -315,21 +315,21 @@ export default function JSDashboard() {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-32 rounded-xl" />)
+          ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-28 sm:h-32 rounded-xl" />)
           : statCards.map((s) => (
             <Link key={s.label} to={s.link}>
               <Card padding="none" hover className="overflow-hidden h-full">
                 <div className={`h-1.5 bg-gradient-to-r ${s.bgGradient}`} />
-                <div className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{s.label}</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">{s.value}</p>
-                      <p className="text-xs text-slate-400 mt-1">{s.change}</p>
+                <div className="p-3.5 sm:p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{s.label}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-0.5 sm:mt-1">{s.value}</p>
+                      <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 truncate">{s.change}</p>
                     </div>
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${s.color}`}>
+                    <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${s.color}`}>
                       {s.icon}
                     </div>
                   </div>
@@ -339,19 +339,19 @@ export default function JSDashboard() {
           ))}
       </div>
 
-      {/* Quick Actions — 5 cards */}
+      {/* Quick Actions */}
       <div>
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h2>
-<div className="grid sm:grid-cols-3 gap-3">
+        <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {quickActions.map((action) => (
             <Link key={action.to} to={action.to} className="group">
-              <Card hover padding="md" className="flex flex-col items-center text-center gap-3 h-full py-5">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-105 ${action.color}`}>
+              <Card hover padding="none" className="p-3.5 sm:p-5 flex flex-col items-center text-center gap-2.5 h-full">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-105 ${action.color}`}>
                   {action.icon}
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800 text-sm leading-tight">{action.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-tight">{action.desc}</p>
+                  <p className="font-semibold text-slate-800 text-xs sm:text-sm leading-tight">{action.label}</p>
+                  <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 leading-tight">{action.desc}</p>
                 </div>
               </Card>
             </Link>
