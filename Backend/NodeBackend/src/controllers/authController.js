@@ -53,7 +53,7 @@ const login = asyncHandler(async (req, res) => {
   // FIX 2 — Select lockout fields alongside password
   const user = await User.findOne({ email: email.toLowerCase() }).select('+password +loginAttempts +lockUntil');
   if (!user) {
-    return sendError(res, 'Invalid email or password.', 401);
+    return sendError(res, 'No account found with this email address. Please create an account to get started.', 404);
   }
 
   // FIX 2 — Check account lockout

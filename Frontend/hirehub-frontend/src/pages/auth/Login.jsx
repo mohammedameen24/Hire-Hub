@@ -78,6 +78,8 @@ export default function Login() {
     } catch (err) {
       if (!err.response) {
         setApiError('Unable to connect to the server. Please check your connection and try again.');
+      } else if (err.response.status === 404) {
+        setApiError(err.response.data?.detail || err.response.data?.message || 'No account found with this email address. Please create an account to get started.');
       } else if (err.response.status === 401) {
         setApiError(err.response.data?.detail || err.response.data?.message || 'Invalid email or password. Please check your credentials and try again.');
       } else if (err.response.status === 403) {
@@ -163,15 +165,25 @@ export default function Login() {
 
           {/* Exception / API Error Callout */}
           {apiError && (
-            <div className="mb-6 p-4 bg-danger-50 border border-danger-200 rounded-xl text-sm text-danger-700 flex items-start gap-3 animate-fade-in shadow-sm">
-              <div className="w-8 h-8 rounded-full bg-danger-100 flex items-center justify-center flex-shrink-0 text-danger-600">
+            <div className={`mb-6 p-4 ${apiError.includes('No account found') ? 'bg-amber-50 border-amber-200' : 'bg-danger-50 border-danger-200'} border rounded-xl text-sm flex items-start gap-3 animate-fade-in shadow-sm`}>
+              <div className={`w-8 h-8 rounded-full ${apiError.includes('No account found') ? 'bg-amber-100 text-amber-600' : 'bg-danger-100 text-danger-600'} flex items-center justify-center flex-shrink-0`}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-danger-800 mb-0.5">Invalid Credentials</p>
-                <p className="text-xs leading-relaxed text-danger-700">{apiError}</p>
+                <p className={`font-semibold mb-0.5 ${apiError.includes('No account found') ? 'text-amber-800' : 'text-danger-800'}`}>
+                  {apiError.includes('No account found') ? 'Account Not Found' : 'Invalid Credentials'}
+                </p>
+                <p className={`text-xs leading-relaxed ${apiError.includes('No account found') ? 'text-amber-700' : 'text-danger-700'}`}>{apiError}</p>
+                {apiError.includes('No account found') && (
+                  <Link to="/register" className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-accent-600 hover:text-accent-700 transition-colors">
+                    Create an account
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </Link>
+                )}
               </div>
             </div>
           )}
