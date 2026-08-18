@@ -52,8 +52,8 @@ export default function JSDashboard() {
           setAllApps(apps);
           setRecentApps(apps.slice(0, 4));
         }
-      } catch {
-        // silently fail — will show empty states
+      } catch (error) {
+        console.error('Dashboard fetch error:', error);
       } finally {
         setLoading(false);
       }

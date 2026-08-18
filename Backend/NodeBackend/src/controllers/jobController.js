@@ -12,15 +12,17 @@ const getJobs = asyncHandler(async (req, res) => {
   const filter = { status: 'open', flagged: false };
 
   if (q) {
+    const safeQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     filter.$or = [
-      { title: { $regex: q, $options: 'i' } },
-      { description: { $regex: q, $options: 'i' } },
-      { skills_required: { $elemMatch: { $regex: q, $options: 'i' } } },
+      { title: { $regex: safeQuery, $options: 'i' } },
+      { description: { $regex: safeQuery, $options: 'i' } },
+      { skills_required: { $elemMatch: { $regex: safeQuery, $options: 'i' } } },
     ];
   }
 
   if (location) {
-    filter.location = { $regex: location, $options: 'i' };
+    const safeLocation = location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.location = { $regex: safeLocation, $options: 'i' };
   }
 
   if (job_type) {

@@ -39,10 +39,28 @@ const jobSchema = new mongoose.Schema(
     },
     flagged: { type: Boolean, default: false },
     flag_reason: { type: String, default: '' },
-    // FIX 2 — applicant_count removed; always derive from Application collection
   },
   { timestamps: true }
 );
+
+// Pre-save hook to normalize empty/whitespace-only strings to null
+jobSchema.pre('save', function (next) {
+  const stringFields = ['requirements', 'salary', 'location', 'flag_reason'];
+  stringFields.forEach((field) => {
+    if (this[field] && this[field].trim() === '') {
+      this[field] = null;
+    }
+  });
+  // Normalize skills_required: empty string becomes empty array
+  if (this.skills_required && this.skills_required === '') {
+    this.skills_required = [];
+  } else if (Array.isArray(this.skills_required) && this.skills_required.length === 0) {
+    this.skills_required = [];
+  }
+  next();
+});
+
+// FIX 2 — applicant_count removed; always derive from Application collection
 
 // Text index for search
 jobSchema.index({ title: 'text', description: 'text', skills_required: 'text' });

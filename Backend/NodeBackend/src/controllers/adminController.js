@@ -122,9 +122,10 @@ const getUsers = asyncHandler(async (req, res) => {
 
   if (role) filter.role = role;
   if (searchTerm) {
+    const safeSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     filter.$or = [
-      { full_name: { $regex: searchTerm, $options: 'i' } },
-      { email: { $regex: searchTerm, $options: 'i' } },
+      { full_name: { $regex: safeSearchTerm, $options: 'i' } },
+      { email: { $regex: safeSearchTerm, $options: 'i' } },
     ];
   }
 

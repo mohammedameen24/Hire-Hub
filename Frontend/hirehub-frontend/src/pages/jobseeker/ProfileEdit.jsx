@@ -199,7 +199,7 @@ export default function ProfileEdit() {
                   id="full_name"
                   type="text"
                   className={`w-full px-4 py-2.5 rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
-                    errors.full_name ? 'border-danger-400' : 'border-slate-300'
+                    errors.phone ? 'border-danger-400' : 'border-slate-300'
                   }`}
                   {...register('full_name', { required: 'Name is required' })}
                 />
@@ -222,12 +222,20 @@ export default function ProfileEdit() {
                 <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1.5">
                   Phone
                 </label>
-                <input
+<input
                   id="phone"
                   type="tel"
                   placeholder="+1 (555) 000-0000"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-                  {...register('phone')}
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
+                    errors.phone ? 'border-danger-400' : 'border-slate-300'
+                  }"
+                  {...register('phone', {
+                    required: 'Phone is required',
+                    pattern: {
+                      value: /^[0-9]{10}$/,
+                      message: 'Phone number must be exactly 10 digits',
+                    },
+                  })}
                 />
               </div>
 

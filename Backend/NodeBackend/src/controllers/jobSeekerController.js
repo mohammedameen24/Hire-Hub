@@ -1,3 +1,4 @@
+const { body, validationResult } = require('express-validator');
 const JobSeekerProfile = require('../models/JobSeekerProfile');
 const User = require('../models/User');
 const Application = require('../models/Application');
@@ -23,6 +24,20 @@ const getProfile = asyncHandler(async (req, res) => {
 // PUT /api/jobseeker/profile
 const updateProfile = asyncHandler(async (req, res) => {
   const { full_name, phone, location, skills, experience, education, certifications } = req.body;
+
+  // Run express-validator checks
+  let result = validationResult(req);
+  if (!result.isEmpty()) {
+    return sendError(res, result.array()[0].msg, 400);
+  }
+
+  // Validate phone number: must be exactly 10 digits if provided
+  if (phone !== undefined && phone !== '') {
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone)) {
+      return sendError(res, 'Phone number must be exactly 10 digits', 400);
+    }
+  }
 
   let skillsArray = skills;
   if (typeof skills === 'string') {
@@ -62,7 +77,6 @@ const updateProfile = asyncHandler(async (req, res) => {
   return sendSuccess(res, profile);
 });
 
-// POST /api/jobseeker/resume/upload
 const uploadResume = asyncHandler(async (req, res) => {
   if (!req.file) {
     return sendError(res, 'Please upload a PDF file.', 400);

@@ -75,7 +75,11 @@ const login = asyncHandler(async (req, res) => {
   if (!isMatch) {
     // FIX 2 — Increment failure counter
     await user.incLoginAttempts();
-    return sendError(res, 'Invalid email or password.', 401);
+    // Return different messages based on whether account is close to being locked
+    if (user.loginAttempts >= 4) {
+      return sendError(res, 'Incorrect password. ' + (user.loginAttempts >= 5 ? 'Your account will be locked after 1 more failed attempt.' : ''), 401);
+    }
+    return sendError(res, 'Incorrect password.', 401);
   }
 
   // Successful login — reset counter
@@ -164,6 +168,12 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   if (!email) {
     return sendError(res, 'Email address is required.', 400);
+  }
+
+  // Validate email format
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) {
+    return sendError(res, 'Please provide a valid email address.', 400);
   }
 
   // Always return the same message to prevent user enumeration

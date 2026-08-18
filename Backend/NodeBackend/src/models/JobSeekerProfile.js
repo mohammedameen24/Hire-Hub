@@ -9,7 +9,11 @@ const jobSeekerProfileSchema = new mongoose.Schema(
       unique: true,
     },
     full_name: { type: String, trim: true },
-    phone: { type: String, trim: true },
+    phone: {
+    type: String,
+    trim: true,
+    match: [/^[0-9]{10}$/, 'Phone number must be exactly 10 digits'],
+  },
     location: { type: String, trim: true },
     // Skills stored as array; also accept comma-string from frontend and convert
     skills: { type: [String], default: [] },

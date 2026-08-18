@@ -1,3 +1,4 @@
+const { body, param, validationResult } = require('express-validator');
 const EmployerProfile = require('../models/EmployerProfile');
 const Job = require('../models/Job');
 const Application = require('../models/Application');
@@ -17,24 +18,63 @@ const getCompany = asyncHandler(async (req, res) => {
 });
 
 // PUT /api/employer/company (and /profile)
-const updateCompany = asyncHandler(async (req, res) => {
-  const { company_name, industry, location, website, company_size, description } = req.body;
+const updateCompany = [
+  body('company_name')
+    .trim()
+    .notEmpty()
+    .withMessage('Company name is required')
+    .isLength({ min: 2 }).withMessage('Company name must be at least 2 characters'),
+  body('industry').optional().trim().isLength({ min: 2 }).withMessage('Industry must be at least 2 characters'),
+  body('location').optional().trim().isLength({ min: 1 }).withMessage('Location must not be empty'),
+  body('website')
+    .optional()
+    .trim()
+    .isURL().withMessage('Website must be a valid URL'),
+  body('company_size').optional().trim(),
+  body('description').optional().trim(),
 
-  let profile = await EmployerProfile.findOne({ userId: req.user.id });
-  if (!profile) {
-    profile = new EmployerProfile({ userId: req.user.id });
-  }
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return sendError(res, errors.array()[0].msg, 400);
+    }
 
-  if (company_name !== undefined) profile.company_name = company_name;
-  if (industry !== undefined) profile.industry = industry;
-  if (location !== undefined) profile.location = location;
-  if (website !== undefined) profile.website = website;
-  if (company_size !== undefined) profile.company_size = company_size;
-  if (description !== undefined) profile.description = description;
+    const { company_name, industry, location, website, company_size, description } = req.body;
 
-  await profile.save();
-  return sendSuccess(res, profile);
-});
+    let profile = await EmployerProfile.findOne({ userId: req.user.id });
+    if (!profile) {
+      profile = new EmployerProfile({ userId: req.user.id });
+    }
+
+    if (company_name !== undefined) {
+      const trimmedName = company_name.trim();
+      if (!trimmedName) {
+        return sendError(res, 'Company name cannot be blank.', 400);
+      }
+      profile.company_name = trimmedName;
+    }
+    if (industry !== undefined) {
+      const trimmedIndustry = industry.trim();
+      if (trimmedIndustry) profile.industry = trimmedIndustry;
+    }
+    if (location !== undefined) {
+      const trimmedLocation = location.trim();
+      if (trimmedLocation) profile.location = trimmedLocation;
+    }
+    if (website !== undefined) {
+      const trimmedWebsite = website.trim();
+      if (trimmedWebsite) profile.website = trimmedWebsite;
+    }
+    if (company_size !== undefined) profile.company_size = company_size;
+    if (description !== undefined) {
+      const trimmedDesc = description.trim();
+      if (trimmedDesc) profile.description = trimmedDesc;
+    }
+
+    await profile.save();
+    return sendSuccess(res, profile);
+  }),
+];
 
 // GET /api/employer/jobs
 const getMyJobs = asyncHandler(async (req, res) => {
@@ -60,41 +100,59 @@ const getMyJobs = asyncHandler(async (req, res) => {
 });
 
 // POST /api/employer/jobs
-const createJob = asyncHandler(async (req, res) => {
-  const {
-    title,
-    description,
-    requirements,
-    skills_required,
-    location,
-    job_type,
-    salary,
-    experience_level,
-  } = req.body;
+const createJob = [
+  body('title').notEmpty().withMessage('Job title is required').trim().isLength({ min: 3 }).withMessage('Job title must be at least 3 characters'),
+  body('description').notEmpty().withMessage('Job description is required').trim().isLength({ min: 10 }).withMessage('Job description must be at least 10 characters'),
+  body('requirements').optional().trim(),
+  body('skills_required').optional().trim(),
+  body('location').optional().trim(),
+  body('job_type')
+    .optional()
+    .isIn(['full-time', 'part-time', 'contract', 'internship', null])
+    .withMessage('Invalid job type'),
+  body('salary').optional().trim(),
+  body('experience_level')
+    .optional()
+    .isIn(['entry', 'mid', 'senior', 'lead', null])
+    .withMessage('Invalid experience level'),
 
-  if (!title || !description) {
-    return sendError(res, 'Job title and description are required.', 400);
-  }
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return sendError(res, errors.array()[0].msg, 400);
+    }
 
-  let skillsArray = skills_required;
-  if (typeof skills_required === 'string') {
-    skillsArray = skills_required.split(',').map((s) => s.trim()).filter(Boolean);
-  }
+    const {
+      title,
+      description,
+      requirements,
+      skills_required,
+      location,
+      job_type,
+      salary,
+      experience_level,
+    } = req.body;
 
-  const job = await Job.create({
-    employerId: req.user.id,
-    title,
-    description,
-    requirements: requirements || '',
-    skills_required: skillsArray || [],
-    location: location || '',
-    job_type: job_type || null,
-    salary: salary || '',
-    experience_level: experience_level || null,
-  });
+    let skillsArray = skills_required;
+    if (typeof skills_required === 'string') {
+      skillsArray = skills_required.split(',').map((s) => s.trim()).filter(Boolean);
+    }
 
-  return sendSuccess(res, job, 201);
-});
+    const job = await Job.create({
+      employerId: req.user.id,
+      title,
+      description,
+      requirements: requirements || '',
+      skills_required: skillsArray || [],
+      location: location || '',
+      job_type: job_type || null,
+      salary: salary || '',
+      experience_level: experience_level || null,
+    });
+
+    return sendSuccess(res, job, 201);
+  }),
+];
 
 // PUT /api/employer/jobs/:id
 const updateJob = asyncHandler(async (req, res) => {
