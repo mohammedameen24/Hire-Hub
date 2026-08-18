@@ -225,7 +225,7 @@ export default function ProfileEdit() {
 <input
                   id="phone"
                   type="tel"
-                  placeholder="+1 (555) 000-0000"
+                  placeholder=""
                   className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
                     errors.phone ? 'border-danger-400' : 'border-slate-300'
                   }"
@@ -247,8 +247,8 @@ export default function ProfileEdit() {
                   id="location"
                   type="text"
                   placeholder="City, State"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-                  {...register('location')}
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${errors.location ? 'border-danger-400' : 'border-slate-300'}"
+                  {...register('location', { required: 'Location is required' })}
                 />
               </div>
             </div>
@@ -268,7 +268,7 @@ export default function ProfileEdit() {
                 type="text"
                 placeholder="React, Python, Machine Learning, CSS, JS ..."
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
-                {...register('skills')}
+                {...register('skills', { required: 'Skills are required' })}
               />
               <p className="mt-1 text-xs text-slate-400">You can separate skills with commas <em>or</em> spaces — both work.</p>
             </div>
@@ -284,7 +284,7 @@ export default function ProfileEdit() {
               rows={4}
               placeholder="Brief summary of your work experience..."
               className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 resize-none"
-              {...register('experience')}
+              {...register('experience', { required: 'Experience is required' })}
             />
           </div>
 
@@ -298,7 +298,7 @@ export default function ProfileEdit() {
               rows={3}
               placeholder="Degree, Institution, Year..."
               className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 resize-none"
-              {...register('education')}
+              {...register('education', { required: 'Education is required' })}
             />
           </div>
 

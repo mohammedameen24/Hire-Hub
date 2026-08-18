@@ -25,13 +25,24 @@ const getProfile = asyncHandler(async (req, res) => {
 const updateProfile = asyncHandler(async (req, res) => {
   const { full_name, phone, location, skills, experience, education, certifications } = req.body;
 
-  // Run express-validator checks
-  let result = validationResult(req);
-  if (!result.isEmpty()) {
-    return sendError(res, result.array()[0].msg, 400);
+  // Validate required fields
+  if (!full_name || full_name.trim() === '') {
+    return sendError(res, 'Full name is required', 400);
+  }
+  if (!location || location.trim() === '') {
+    return sendError(res, 'Location is required', 400);
+  }
+  if (!experience || experience.trim() === '') {
+    return sendError(res, 'Experience is required', 400);
+  }
+  if (!education || education.trim() === '') {
+    return sendError(res, 'Education is required', 400);
+  }
+  if (!skills || skills.trim() === '') {
+    return sendError(res, 'Skills are required', 400);
   }
 
-  // Validate phone number: must be exactly 10 digits if provided
+  // Validate phone number: must be exactly 10 digits
   if (phone !== undefined && phone !== '') {
     const phoneRegex = /^[0-9]{10}$/;
     if (!phoneRegex.test(phone)) {
