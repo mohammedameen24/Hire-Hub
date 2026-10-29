@@ -1,19 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { jwtDecode } from 'jwt-decode';
-
-function isTokenValid(token) {
-  if (!token) return false;
-  try {
-    const decoded = jwtDecode(token);
-    if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { isTokenValid } from '../utils/tokenUtils'; // Bug #6 — shared utility
 
 function getValidAuthState() {
   try {

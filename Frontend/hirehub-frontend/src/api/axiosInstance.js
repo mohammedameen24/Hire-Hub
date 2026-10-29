@@ -6,7 +6,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30s — AI endpoints can be slow
+  timeout: 45000, // 45s — AI and file upload endpoints can take a moment
 });
 
 // ── Request interceptor: attach JWT ──────────────────────────

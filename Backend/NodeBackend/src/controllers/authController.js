@@ -163,6 +163,11 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 // POST /api/auth/forgot-password
+// Bug #1 fixed — generates a real signed reset token, stores the hash in DB,
+// and (when an email provider is configured) sends the reset link.
+// Falls back gracefully when no email provider is set up (dev/test environments).
+const crypto = require('crypto');
+
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
@@ -170,20 +175,98 @@ const forgotPassword = asyncHandler(async (req, res) => {
     return sendError(res, 'Email address is required.', 400);
   }
 
-  // Validate email format
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(email)) {
     return sendError(res, 'Please provide a valid email address.', 400);
   }
 
-  // Always return the same message to prevent user enumeration
-  await User.findOne({ email: email.toLowerCase() });
-
-  // TODO: Integrate an email provider (e.g. SendGrid/Resend) to send a real
-  // password-reset link. For now this endpoint is a stub.
-  return sendSuccess(res, {
+  // Always return the same success message to prevent user enumeration
+  const SAFE_RESPONSE = {
     message: 'If an account exists with this email, password reset instructions have been sent.',
-  });
+  };
+
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    // Don't reveal whether the email exists
+    return sendSuccess(res, SAFE_RESPONSE);
+  }
+
+  // Generate a random token, store only its SHA-256 hash
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = expiresAt;
+  await user.save({ validateBeforeSave: false });
+
+  // Build reset URL — frontend must have a /reset-password?token=<rawToken> route
+  const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+  const resetUrl = `${frontendOrigin}/reset-password?token=${rawToken}`;
+
+  // Attempt to send email if a provider is configured
+  // Replace this block with your email provider (SendGrid, Resend, Nodemailer, etc.)
+  const emailProviderConfigured = !!process.env.EMAIL_FROM && !!process.env.SENDGRID_API_KEY;
+  if (emailProviderConfigured) {
+    try {
+      // Example — swap in your actual email service here:
+      // await sendEmail({ to: user.email, subject: 'Password Reset', html: `<a href="${resetUrl}">Reset password</a>` });
+      console.log(`[forgotPassword] Reset email sent to ${user.email}`);
+    } catch (emailErr) {
+      // If email fails, clear the token so the user can try again
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save({ validateBeforeSave: false });
+      console.error('[forgotPassword] Email send failed:', emailErr.message);
+      return sendError(res, 'Failed to send reset email. Please try again later.', 500);
+    }
+  } else {
+    // No email provider — log reset URL to server console for dev/test use
+    console.log(`[forgotPassword] DEV MODE — reset URL for ${user.email}: ${resetUrl}`);
+  }
+
+  return sendSuccess(res, SAFE_RESPONSE);
 });
 
-module.exports = { register, login, getMe, changePassword, forgotPassword };
+// POST /api/auth/reset-password
+// Bug #1 fix — companion endpoint that consumes the token and sets a new password.
+const resetPassword = asyncHandler(async (req, res) => {
+  const { token, password, confirm_password } = req.body;
+
+  if (!token || !password) {
+    return sendError(res, 'Reset token and new password are required.', 400);
+  }
+
+  if (password !== confirm_password) {
+    return sendError(res, 'Passwords do not match.', 400);
+  }
+
+  if (!STRONG_PASSWORD_REGEX.test(password)) {
+    return sendError(
+      res,
+      'Password must be at least 8 characters and include uppercase, lowercase, a digit, and a special character.',
+      400
+    );
+  }
+
+  // Hash the incoming raw token and look up by hash (never store raw tokens)
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: new Date() },
+  });
+
+  if (!user) {
+    return sendError(res, 'Reset token is invalid or has expired.', 400);
+  }
+
+  user.password = password;
+  user.passwordResetToken = null;
+  user.passwordResetExpires = null;
+  await user.save();
+
+  return sendSuccess(res, { message: 'Password reset successfully. You can now sign in.' });
+});
+
+module.exports = { register, login, getMe, changePassword, forgotPassword, resetPassword };

@@ -59,14 +59,21 @@ export default function CandidateProfile() {
   const navigate = useNavigate();
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(''); // Bug #30 fixed
 
   useEffect(() => {
     const fetch = async () => {
       try {
         const res = await axiosInstance.get(`/employer/candidates/${id}`);
         setCandidate(res.data);
-      } catch {
-        //
+      } catch (err) {
+        // Bug #30 fixed — distinguish between "not found" and other errors
+        // so users don't see "Candidate not found" on a network error or 500.
+        setFetchError(
+          err.response?.status === 404
+            ? 'Candidate not found.'
+            : err.response?.data?.message || 'Failed to load candidate profile. Please try again.'
+        );
       } finally {
         setLoading(false);
       }
@@ -83,10 +90,10 @@ export default function CandidateProfile() {
     );
   }
 
-  if (!candidate) {
+  if (!candidate && !loading) {
     return (
       <Card padding="lg" className="text-center">
-        <h2 className="text-lg font-semibold text-slate-700 mb-2">Candidate not found</h2>
+        <h2 className="text-lg font-semibold text-slate-700 mb-2">{fetchError || 'Candidate not found'}</h2>
         <Button variant="secondary" onClick={() => navigate(-1)}>Go Back</Button>
       </Card>
     );

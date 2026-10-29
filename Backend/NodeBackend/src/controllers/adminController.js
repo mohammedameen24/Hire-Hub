@@ -8,6 +8,15 @@ const { sendSuccess, sendError } = require('../utils/apiResponse');
 
 // GET /api/admin/dashboard/stats
 const getDashboardStats = asyncHandler(async (req, res) => {
+  // Bug #41 fixed — wrap each query in its own try/catch so one failure doesn't
+  // crash the entire dashboard; failed queries return safe fallback values.
+  const safeQuery = async (fn, fallback) => {
+    try { return await fn(); } catch (e) {
+      console.error('[getDashboardStats] Sub-query failed:', e.message);
+      return fallback;
+    }
+  };
+
   const [
     totalUsers,
     activeJobs,
@@ -18,14 +27,14 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     recentJobs,
     recentApps,
   ] = await Promise.all([
-    User.countDocuments({}),
-    Job.countDocuments({ status: 'open' }),
-    Job.countDocuments({ flagged: true }),
-    EmployerProfile.countDocuments({ verified: false }),
-    EmployerProfile.find({ verified: false }).populate('userId', 'full_name email is_verified createdAt').limit(5),
-    User.find({}).sort({ createdAt: -1 }).limit(5),
-    Job.find({}).populate('employerId', 'company_name full_name').sort({ createdAt: -1 }).limit(5),
-    Application.find({}).populate('jobId', 'title').populate('jobSeekerId', 'full_name').sort({ createdAt: -1 }).limit(5),
+    safeQuery(() => User.countDocuments({}), 0),
+    safeQuery(() => Job.countDocuments({ status: 'open' }), 0),
+    safeQuery(() => Job.countDocuments({ flagged: true }), 0),
+    safeQuery(() => EmployerProfile.countDocuments({ verified: false }), 0),
+    safeQuery(() => EmployerProfile.find({ verified: false }).populate('userId', 'full_name email is_verified createdAt').limit(5), []),
+    safeQuery(() => User.find({}).sort({ createdAt: -1 }).limit(5), []),
+    safeQuery(() => Job.find({}).populate('employerId', 'company_name full_name').sort({ createdAt: -1 }).limit(5), []),
+    safeQuery(() => Application.find({}).populate('jobId', 'title').populate('jobSeekerId', 'full_name').sort({ createdAt: -1 }).limit(5), []),
   ]);
 
   // Format pending employers for quick verification widget
@@ -100,11 +109,12 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     recent_activity: activityFeed.slice(0, 8),
     recent_jobs: formattedRecentJobs,
     system_status: {
-      db_status: 'Connected',
-      resume_parser_ai: 'Operational',
+      // Bug #8 fixed — db_status reflects actual Mongoose connection state.
+      // api_latency_ms and uptime were hardcoded constants — removed as they
+      // cannot be measured server-side without dedicated infrastructure.
+      db_status: require('mongoose').connection.readyState === 1 ? 'Connected' : 'Disconnected',
+      resume_parser_ai: process.env.GEMINI_API_KEY ? 'Operational' : 'Degraded (no API key)',
       matching_engine: 'Active',
-      api_latency_ms: 28,
-      uptime: '99.98%',
     },
     announcement: {
       message: 'System maintenance scheduled for Sunday at 02:00 AM UTC. Platform services will remain operational.',
@@ -226,6 +236,9 @@ const handleFlaggedJobAction = asyncHandler(async (req, res) => {
     job.status = 'closed';
     job.flagged = false;
     await job.save();
+    // Bug #33 fixed — delete associated applications when a flagged job is removed,
+    // consistent with deleteJob in employerController.
+    await Application.deleteMany({ jobId: job._id });
     return sendSuccess(res, { message: 'Job posting removed.', review_status: 'rejected' });
   }
 
@@ -281,20 +294,10 @@ const getAnalytics = asyncHandler(async (req, res) => {
     employer_growth: 8,
     jobs_growth: 15,
     applications_growth: 22,
-    top_skills: topSkills.length > 0 ? topSkills : [
-      { name: 'React', count: 42, value: 42 },
-      { name: 'Node.js', count: 38, value: 38 },
-      { name: 'Python', count: 31, value: 31 },
-      { name: 'MongoDB', count: 27, value: 27 },
-      { name: 'TypeScript', count: 24, value: 24 },
-    ],
-    top_locations: topLocations.length > 0 ? topLocations : [
-      { name: 'Remote', count: 65, value: 65 },
-      { name: 'San Francisco, CA', count: 32, value: 32 },
-      { name: 'New York, NY', count: 28, value: 28 },
-      { name: 'Austin, TX', count: 21, value: 21 },
-      { name: 'London, UK', count: 18, value: 18 },
-    ],
+    // Bug #10 fixed — return empty arrays instead of hardcoded fake data when
+    // there are no results. The frontend already handles empty gracefully.
+    top_skills: topSkills,
+    top_locations: topLocations,
   });
 });
 

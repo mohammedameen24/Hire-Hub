@@ -10,10 +10,12 @@ const jobSeekerProfileSchema = new mongoose.Schema(
     },
     full_name: { type: String, trim: true },
     phone: {
-    type: String,
-    trim: true,
-    match: [/^[0-9]{10}$/, 'Phone number must be exactly 10 digits'],
-  },
+      type: String,
+      trim: true,
+      // Bug #43 fixed — original regex /^[0-9]{10}$/ is US-only.
+      // Accept international formats: optional +, digits, spaces, dashes, parens.
+      match: [/^\+?[\d\s\-().]{7,20}$/, 'Please enter a valid phone number'],
+    },
     location: { type: String, trim: true },
     // Skills stored as array; also accept comma-string from frontend and convert
     skills: { type: [String], default: [] },

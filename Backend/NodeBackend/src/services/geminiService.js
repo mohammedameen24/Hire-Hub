@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { GEMINI_API_KEY } = require('../config/env');
+const { GEMINI_API_KEY, GEMINI_MODEL } = require('../config/env');
 
 // Create the client lazily; the key is optional and callers (ranking,
 // recommendation, match score) all catch errors and fall back to
@@ -11,13 +11,20 @@ const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
  * Strips markdown fences if present (```json ... ```).
  * Retries once on parse failure.
  */
-async function generateStructuredJSON(prompt) {
+async function generateStructuredJSON(prompt, timeoutMs = 5000) {
   if (!genAI) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent(prompt);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL || 'gemini-flash-lite-latest' });
+
+    // Race Gemini API call against a timeout to prevent hanging on slow network
+    const apiPromise = model.generateContent(prompt);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Gemini request timed out after ${timeoutMs}ms`)), timeoutMs)
+    );
+
+    const result = await Promise.race([apiPromise, timeoutPromise]);
     let text = result.response.text().trim();
 
     // Strip markdown code fences
@@ -40,11 +47,7 @@ async function generateStructuredJSON(prompt) {
       throw new Error('Failed to parse Gemini response as JSON');
     }
   } catch (error) {
-    console.error('❌ Gemini API Error:', {
-      message: error.message,
-      status: error.status,
-      code: error.code,
-    });
+    console.warn(`[GeminiService] API unavailable or failed (${error.message}). Delegating to offline algorithmic backup.`);
     throw error;
   }
 }

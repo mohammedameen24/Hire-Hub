@@ -1,19 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore, homePath } from '../store/authStore';
-import { jwtDecode } from 'jwt-decode';
-
-function isTokenValid(token) {
-  if (!token) return false;
-  try {
-    const decoded = jwtDecode(token);
-    if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { isTokenValid } from '../utils/tokenUtils'; // Bug #6 — shared utility
 
 export default function ProtectedRoute({ allowedRoles, children }) {
   const { token, role, logout } = useAuthStore();

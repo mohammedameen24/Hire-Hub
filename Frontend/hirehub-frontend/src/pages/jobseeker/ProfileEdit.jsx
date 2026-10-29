@@ -83,11 +83,10 @@ export default function ProfileEdit() {
     if (!file) return;
     setCertUploading((prev) => ({ ...prev, [idx]: true }));
     try {
-      // First save the profile so the cert entry exists in the DB at this index
-      await axiosInstance.put('/jobseeker/profile', {
-        certifications,
-      });
-
+      // Bug #14 fixed — the old code did axiosInstance.put('/jobseeker/profile', { certifications })
+      // which only sent certifications and overwrote all other profile fields with empty/default
+      // values. Now we use the dedicated certificate upload endpoint directly without a
+      // pre-save step. The backend uploadCertificate handler only updates certifications[idx].cert_url.
       const formData = new FormData();
       formData.append('file', file);
       const res = await axiosInstance.post(
@@ -199,7 +198,7 @@ export default function ProfileEdit() {
                   id="full_name"
                   type="text"
                   className={`w-full px-4 py-2.5 rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
-                    errors.phone ? 'border-danger-400' : 'border-slate-300'
+                    errors.full_name ? 'border-danger-400' : 'border-slate-300'
                   }`}
                   {...register('full_name', { required: 'Name is required' })}
                 />
@@ -222,21 +221,24 @@ export default function ProfileEdit() {
                 <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1.5">
                   Phone
                 </label>
-<input
+                <input
                   id="phone"
                   type="tel"
                   placeholder=""
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
+                  className={`w-full px-4 py-2.5 rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
                     errors.phone ? 'border-danger-400' : 'border-slate-300'
-                  }"
+                  }`}
                   {...register('phone', {
                     required: 'Phone is required',
                     pattern: {
-                      value: /^[0-9]{10}$/,
-                      message: 'Phone number must be exactly 10 digits',
+                      value: /^\+?[\d\s\-().]{7,20}$/,
+                      message: 'Please enter a valid phone number',
                     },
                   })}
                 />
+                {errors.phone && (
+                  <p className="mt-1 text-sm text-danger-600">{errors.phone.message}</p>
+                )}
               </div>
 
               <div>
@@ -247,9 +249,14 @@ export default function ProfileEdit() {
                   id="location"
                   type="text"
                   placeholder="City, State"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${errors.location ? 'border-danger-400' : 'border-slate-300'}"
+                  className={`w-full px-4 py-2.5 rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 ${
+                    errors.location ? 'border-danger-400' : 'border-slate-300'
+                  }`}
                   {...register('location', { required: 'Location is required' })}
                 />
+                {errors.location && (
+                  <p className="mt-1 text-sm text-danger-600">{errors.location.message}</p>
+                )}
               </div>
             </div>
           </div>

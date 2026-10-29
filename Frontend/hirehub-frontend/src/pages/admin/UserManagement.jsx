@@ -13,6 +13,8 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState('');
   const [actionModal, setActionModal] = useState(null); // { user, action }
   const [processing, setProcessing] = useState(false);
+  const [actionError, setActionError] = useState(''); // Bug #23 fixed — was swallowed silently
+  const [fetchError, setFetchError] = useState('');
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -24,7 +26,9 @@ export default function UserManagement() {
         },
       });
       setUsers(res.data.users || res.data || []);
-    } catch {
+      setFetchError('');
+    } catch (err) {
+      setFetchError(err.response?.data?.message || 'Failed to load users. Please try again.');
       setUsers([]);
     } finally {
       setLoading(false);
@@ -44,6 +48,7 @@ export default function UserManagement() {
   const handleAction = async () => {
     if (!actionModal) return;
     setProcessing(true);
+    setActionError('');
     const { user, action } = actionModal;
     try {
       await axiosInstance.post(`/admin/users/${user._id || user.id}/${action}`);
@@ -59,8 +64,10 @@ export default function UserManagement() {
         )
       );
       setActionModal(null);
-    } catch {
-      //
+    } catch (err) {
+      // Bug #23 fixed — surface the error; don't close the modal so the user
+      // can see what went wrong without losing their context.
+      setActionError(err.response?.data?.message || `Failed to ${action} user. Please try again.`);
     } finally {
       setProcessing(false);
     }
@@ -84,6 +91,13 @@ export default function UserManagement() {
         <h1 className="text-2xl font-bold text-slate-800">User Management</h1>
         <p className="text-slate-500 mt-1">Manage accounts, verify employers, and control access.</p>
       </div>
+
+      {fetchError && (
+        <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700 flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button onClick={() => setFetchError('')} className="text-xs font-bold text-danger-800 hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {/* Search & filters */}
       <Card>
@@ -225,6 +239,9 @@ export default function UserManagement() {
             <>Reactivate <strong>{actionModal?.user?.name || actionModal?.user?.full_name}</strong>&apos;s account?</>
           )}
         </p>
+        {actionError && (
+          <p className="text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3 mb-4">{actionError}</p>
+        )}
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={() => setActionModal(null)}>Cancel</Button>
           <Button

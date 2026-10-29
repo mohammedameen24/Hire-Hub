@@ -37,3 +37,8 @@ Thumbs.db
 
 # Misc
 *.local
+
+# Media / screen recordings (exceeds GitHub 100MB limit)
+*.mp4
+*.mov
+*.avi

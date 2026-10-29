@@ -5,14 +5,15 @@ import Card from '../../components/ui/Card';
 export default function Analytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
 
   useEffect(() => {
     const fetch = async () => {
       try {
         const res = await axiosInstance.get('/admin/analytics');
         setData(res.data);
-      } catch {
-        //
+      } catch (err) {
+        setFetchError(err.response?.data?.message || 'Failed to load analytics. Please refresh.');
       } finally {
         setLoading(false);
       }
@@ -50,9 +51,11 @@ export default function Analytics() {
       value: data?.avg_match_score ? `${Math.round(data.avg_match_score)}%` : '—',
       color: 'text-accent-600',
     },
+    // Bug #9 fixed — recommendations_sent was permanently '—' because the backend
+    // never returns that field. Replaced with a real metric that the backend does return.
     {
-      label: 'AI Recommendations Sent',
-      value: data?.recommendations_sent ?? '—',
+      label: 'Flagged Job Postings',
+      value: data?.flagged_jobs ?? '—',
       color: 'text-amber-600',
     },
   ];
@@ -66,6 +69,13 @@ export default function Analytics() {
         <h1 className="text-2xl font-bold text-slate-800">Platform Analytics</h1>
         <p className="text-slate-500 mt-1">Key metrics and trends across HireHub.</p>
       </div>
+
+      {fetchError && (
+        <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700 flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button onClick={() => setFetchError('')} className="text-xs font-bold text-danger-800 hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {/* Metrics grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

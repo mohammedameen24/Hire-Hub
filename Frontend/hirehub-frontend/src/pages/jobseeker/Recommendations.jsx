@@ -7,6 +7,7 @@ import { CardSkeleton } from '../../components/ui/Spinner';
 export default function Recommendations() {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(''); // Bug #25 fixed
 
   useEffect(() => {
     const fetch = async () => {
@@ -16,7 +17,12 @@ export default function Recommendations() {
         // Sort descending by recommendation score
         data.sort((a, b) => (b.score || b.recommendation_score || 0) - (a.score || a.recommendation_score || 0));
         setRecommendations(data);
-      } catch {
+      } catch (err) {
+        // Bug #25 fixed — show a real error instead of the "complete your profile" empty state
+        setFetchError(
+          err.response?.data?.message ||
+          'Failed to load recommendations. Please try again later.'
+        );
         setRecommendations([]);
       } finally {
         setLoading(false);
@@ -31,6 +37,13 @@ export default function Recommendations() {
         <h1 className="text-2xl font-bold text-slate-800">AI Recommendations</h1>
         <p className="text-slate-500 mt-1">Jobs matched to your profile by our AI — ranked by relevance.</p>
       </div>
+
+      {fetchError && (
+        <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700 flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button onClick={() => setFetchError('')} className="text-xs font-bold text-danger-800 hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-4">
@@ -68,7 +81,7 @@ export default function Recommendations() {
       ) : (
         <div className="space-y-4">
           {recommendations.map((rec, idx) => {
-            const score = rec.score || rec.recommendation_score || 0;
+            const score = rec.match_score ?? rec.score ?? rec.recommendation_score ?? 0;
             return (
               <Link key={rec._id || rec.id || idx} to={`/jobseeker/jobs/${rec.job_id || rec._id || rec.id}`}>
                 <Card hover padding="md" className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -79,8 +92,24 @@ export default function Recommendations() {
 
                   {/* Job info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold text-slate-800 truncate">{rec.title || rec.job_title}</h3>
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          score >= 70
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : score >= 40
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-slate-400'
+                          }`}
+                        />
+                        {Math.round(score)}% Match
+                      </span>
                     </div>
                     <p className="text-sm text-slate-500">{rec.company}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -107,10 +136,24 @@ export default function Recommendations() {
                     </div>
                   </div>
 
+                  {/* Resume-Job Match Score Widget */}
+                  <div className="flex sm:flex-col items-center justify-between sm:justify-center px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200/80 sm:w-28 text-center flex-shrink-0">
+                    <span
+                      className={`text-xl font-black ${
+                        score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-slate-600'
+                      }`}
+                    >
+                      {Math.round(score)}%
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Match Score
+                    </span>
+                  </div>
+
                   {/* Job type */}
                   <div className="sm:w-24 flex-shrink-0 text-right">
                     {rec.job_type && (
-                      <span className="text-xs text-slate-400">{rec.job_type}</span>
+                      <span className="text-xs text-slate-400 capitalize">{rec.job_type}</span>
                     )}
                   </div>
                 </Card>

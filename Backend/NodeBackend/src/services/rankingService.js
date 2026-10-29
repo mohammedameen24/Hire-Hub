@@ -1,4 +1,5 @@
 const { generateStructuredJSON } = require('./geminiService');
+const { rankApplicantsOffline } = require('./aiFallbackEngine');
 
 async function rankApplicants(job, applicationsWithProfiles) {
   if (!applicationsWithProfiles || applicationsWithProfiles.length === 0) {
@@ -66,23 +67,10 @@ Return ONLY a JSON array of candidates sorted from highest rank to lowest rank:
     result.sort((a, b) => b.match_score - a.match_score);
     return result;
   } catch (err) {
-    console.error('Applicant ranking fallback:', err.message);
-    // Fallback sorting by existing match_score or index
-    return applicationsWithProfiles.map((app) => ({
-      _id: app._id,
-      id: app._id,
-      user_id: app.jobSeekerId?._id || app._id,
-      name: app.profile?.full_name || app.jobSeekerId?.full_name || 'Candidate',
-      full_name: app.profile?.full_name || app.jobSeekerId?.full_name || 'Candidate',
-      email: app.jobSeekerId?.email || '',
-      match_score: app.match_score || 70,
-      score: app.match_score || 70,
-      matched_skills: app.matched_skills || app.profile?.skills || [],
-      status: app.status,
-      resume_url: app.profile?.resume_url || '',
-      applied_at: app.createdAt,
-    }));
+    console.log('[Ranking] Using offline algorithmic backup engine for applicant ranking.');
+    return rankApplicantsOffline(job, applicationsWithProfiles);
   }
 }
 
 module.exports = { rankApplicants };
+

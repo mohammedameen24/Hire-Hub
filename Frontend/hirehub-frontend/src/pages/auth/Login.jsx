@@ -1,23 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuthStore, homePath } from '../../store/authStore';
 import axiosInstance from '../../api/axiosInstance';
 import Button from '../../components/ui/Button';
-import { jwtDecode } from 'jwt-decode';
-
-function isTokenValid(token) {
-  if (!token) return false;
-  try {
-    const decoded = jwtDecode(token);
-    if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { isTokenValid } from '../../utils/tokenUtils'; // Bug #6 — shared utility
 
 export default function Login() {
   const {
@@ -39,16 +26,25 @@ export default function Login() {
 
   const from = location.state?.from?.pathname;
 
-  // Only redirect if token is valid and role exists
+  // Clear stale token in an effect, not during render
+  useEffect(() => {
+    if (token && !isTokenValid(token)) {
+      logout();
+    }
+  }, [token, logout]);
+
+  // Already logged in — redirect via JSX (not navigate() during render)
   if (token && isTokenValid(token) && role) {
-    navigate(homePath(role), { replace: true });
-    return null;
+    return <Navigate to={homePath(role)} replace />;
   }
 
-  // Clear any invalid/stale token
-  if (token && !isTokenValid(token)) {
-    logout();
-  }
+  const getErrorTitle = (msg) => {
+    if (msg.includes('No account found')) return 'Account Not Found';
+    if (msg.includes('nactive') || msg.includes('deactivated')) return 'Account Inactive';
+    if (msg.includes('locked')) return 'Account Locked';
+    if (msg.includes('connect') || msg.includes('server')) return 'Connection Error';
+    return 'Sign In Failed';
+  };
 
   const onSubmit = async (data) => {
     setApiError('');
@@ -84,6 +80,8 @@ export default function Login() {
         setApiError(err.response.data?.detail || err.response.data?.message || 'Invalid email or password. Please check your credentials and try again.');
       } else if (err.response.status === 403) {
         setApiError(err.response.data?.detail || err.response.data?.message || 'Account is inactive. Please contact support.');
+      } else if (err.response.status === 429) {
+        setApiError(err.response.data?.detail || err.response.data?.message || 'Account temporarily locked due to too many failed attempts. Please try again later.');
       } else {
         setApiError(
           err.response.data?.detail ||
@@ -173,7 +171,7 @@ export default function Login() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`font-semibold mb-0.5 ${apiError.includes('No account found') ? 'text-amber-800' : 'text-danger-800'}`}>
-                  {apiError.includes('No account found') ? 'Account Not Found' : 'Invalid Credentials'}
+                  {getErrorTitle(apiError)}
                 </p>
                 <p className={`text-xs leading-relaxed ${apiError.includes('No account found') ? 'text-amber-700' : 'text-danger-700'}`}>{apiError}</p>
                 {apiError.includes('No account found') && (

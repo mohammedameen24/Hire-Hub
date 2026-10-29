@@ -11,13 +11,16 @@ export default function FlaggedPostings() {
   const [loading, setLoading] = useState(true);
   const [reviewModal, setReviewModal] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [actionError, setActionError] = useState(''); // Bug #22 fixed — was swallowed silently
+  const [fetchError, setFetchError] = useState('');
 
   useEffect(() => {
     const fetch = async () => {
       try {
         const res = await axiosInstance.get('/admin/flagged-jobs');
         setPostings(res.data.flagged_jobs || res.data || []);
-      } catch {
+      } catch (err) {
+        setFetchError(err.response?.data?.message || 'Failed to load flagged postings. Please refresh.');
         setPostings([]);
       } finally {
         setLoading(false);
@@ -28,6 +31,7 @@ export default function FlaggedPostings() {
 
   const handleAction = async (postId, action) => {
     setProcessing(true);
+    setActionError('');
     try {
       await axiosInstance.post(`/admin/flagged-jobs/${postId}/${action}`);
       setPostings((prev) =>
@@ -36,8 +40,9 @@ export default function FlaggedPostings() {
         )
       );
       setReviewModal(null);
-    } catch {
-      //
+    } catch (err) {
+      // Bug #22 fixed — surface the error instead of swallowing it
+      setActionError(err.response?.data?.message || `Failed to ${action} posting. Please try again.`);
     } finally {
       setProcessing(false);
     }
@@ -49,6 +54,20 @@ export default function FlaggedPostings() {
         <h1 className="text-2xl font-bold text-slate-800">Flagged Postings</h1>
         <p className="text-slate-500 mt-1">Review AI-flagged job postings for policy violations.</p>
       </div>
+
+      {fetchError && (
+        <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700 flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button onClick={() => setFetchError('')} className="text-xs font-bold text-danger-800 hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700 flex items-center justify-between">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-xs font-bold text-danger-800 hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">

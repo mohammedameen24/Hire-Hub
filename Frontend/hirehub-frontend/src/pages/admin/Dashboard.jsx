@@ -80,22 +80,46 @@ export default function ADDashboard() {
     }
   };
 
-  const handleRunDiagnostics = () => {
+  const handleRunDiagnostics = async () => {
+    // Bug #7 fixed — removed fake setTimeout + hardcoded result string.
+    // Now hits a real backend health endpoint. Falls back gracefully if unavailable.
     setRunningDiagnostics(true);
     setDiagnosticResult(null);
-    setTimeout(() => {
-      setRunningDiagnostics(false);
+    try {
+      const start = Date.now();
+      const res = await axiosInstance.get('/admin/dashboard/stats');
+      const latency = Date.now() - start;
+      const status = res.data?.system_status || {};
       setDiagnosticResult({
         timestamp: new Date().toLocaleTimeString(),
-        status: 'All System Services Healthy',
-        details: 'Database pool: OK (12/100 active), AI Resume Parser API: 100% operational, Redis Cache: Clear, Latency: 24ms.',
+        status: status.db_status === 'Connected' ? 'All Monitored Services Healthy' : 'Database Issue Detected',
+        details: [
+          `Database: ${status.db_status || 'Unknown'}`,
+          `AI Resume Parser: ${status.resume_parser_ai || 'Unknown'}`,
+          `Matching Engine: ${status.matching_engine || 'Unknown'}`,
+          `Round-trip latency: ${latency}ms`,
+        ].join(' · '),
       });
-    }, 1200);
+    } catch (err) {
+      setDiagnosticResult({
+        timestamp: new Date().toLocaleTimeString(),
+        status: 'Diagnostics Failed',
+        details: err.response?.data?.message || 'Could not reach backend. Check server logs.',
+        error: true,
+      });
+    } finally {
+      setRunningDiagnostics(false);
+    }
   };
 
   const handleSaveBanner = () => {
+    // Bug #29 — there is no backend endpoint to persist announcements.
+    // The save updates local state only; the change is lost on page refresh.
+    // A warning is shown to make this limitation visible to admins.
     setAnnouncement((prev) => ({ ...prev, message: bannerInput }));
     setEditingBanner(false);
+    setSuccessMsg('Banner updated (local session only — no backend persistence yet).');
+    setTimeout(() => setSuccessMsg(''), 5000);
   };
 
   const handleExportCSV = () => {
@@ -316,16 +340,22 @@ export default function ADDashboard() {
 
       {/* Diagnostics Alert Result */}
       {diagnosticResult && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 animate-fade-in flex items-start gap-3">
-          <svg className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <div className={`p-4 rounded-xl border animate-fade-in flex items-start gap-3 ${diagnosticResult.error ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'}`}>
+          {diagnosticResult.error ? (
+            <svg className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
           <div className="flex-1 text-sm">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-emerald-800">{diagnosticResult.status}</span>
-              <span className="text-xs text-emerald-600">{diagnosticResult.timestamp}</span>
+              <span className={`font-semibold ${diagnosticResult.error ? 'text-rose-800' : 'text-emerald-800'}`}>{diagnosticResult.status}</span>
+              <span className={`text-xs ${diagnosticResult.error ? 'text-rose-600' : 'text-emerald-600'}`}>{diagnosticResult.timestamp}</span>
             </div>
-            <p className="mt-0.5 text-xs text-emerald-700">{diagnosticResult.details}</p>
+            <p className={`mt-0.5 text-xs ${diagnosticResult.error ? 'text-rose-700' : 'text-emerald-700'}`}>{diagnosticResult.details}</p>
           </div>
         </div>
       )}

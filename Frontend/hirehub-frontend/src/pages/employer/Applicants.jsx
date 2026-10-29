@@ -413,9 +413,13 @@ export default function Applicants() {
     setActionError('');
     try {
       await axiosInstance.post(`/employer/jobs/${jobId}/applicants/${applicantId}/${action}`);
+      // Bug #17 fixed — the backend normalises 'shortlist' → 'shortlisted'.
+      // The optimistic UI update must use the normalised value so status badges
+      // render correctly (statusLabel / scoreColor maps use 'shortlisted').
+      const normalizedStatus = action === 'shortlist' ? 'shortlisted' : action;
       setApplicants((prev) =>
         prev.map((a) =>
-          (a._id || a.id) === applicantId ? { ...a, status: action } : a
+          (a._id || a.id) === applicantId ? { ...a, status: normalizedStatus } : a
         )
       );
     } catch (err) {

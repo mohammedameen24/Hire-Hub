@@ -1,4 +1,5 @@
 const { generateStructuredJSON } = require('./geminiService');
+const { getJobRecommendationsOffline } = require('./aiFallbackEngine');
 
 async function getJobRecommendations(candidateProfile, availableJobs, limit = 5) {
   if (!availableJobs || availableJobs.length === 0) {
@@ -59,6 +60,8 @@ Return ONLY a JSON array of up to ${limit} objects sorted by best match score de
     for (const job of availableJobs) {
       const rec = recMap.get(job._id.toString());
       if (rec) {
+        const rawScore = rec.score || rec.match_score || 75;
+        const finalScore = typeof rawScore === 'number' ? Math.min(100, Math.max(0, Math.round(rawScore))) : 75;
         result.push({
           _id: job._id,
           job_id: job._id,
@@ -67,7 +70,8 @@ Return ONLY a JSON array of up to ${limit} objects sorted by best match score de
           location: job.location,
           salary: job.salary,
           job_type: job.job_type,
-          score: rec.score || 75,
+          score: finalScore,
+          match_score: finalScore,
           matched_skills: rec.matched_skills || job.skills_required || [],
         });
       }
@@ -76,20 +80,10 @@ Return ONLY a JSON array of up to ${limit} objects sorted by best match score de
     result.sort((a, b) => b.score - a.score);
     return result.slice(0, limit);
   } catch (err) {
-    console.error('Recommendation service fallback:', err.message);
-    // Programmatic fallback
-    return availableJobs.slice(0, limit).map((j) => ({
-      _id: j._id,
-      job_id: j._id,
-      title: j.title,
-      company: j.employerId?.company_name || 'Company',
-      location: j.location,
-      salary: j.salary,
-      job_type: j.job_type,
-      score: 75,
-      matched_skills: j.skills_required || [],
-    }));
+    console.log('[Recommendations] Using offline algorithmic backup engine for job recommendations.');
+    return getJobRecommendationsOffline(candidateProfile, availableJobs, limit);
   }
 }
 
 module.exports = { getJobRecommendations };
+

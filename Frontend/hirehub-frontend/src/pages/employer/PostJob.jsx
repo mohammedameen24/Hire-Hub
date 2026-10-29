@@ -30,7 +30,7 @@ export default function PostJob() {
       await axiosInstance.post('/employer/jobs', payload);
       navigate('/employer/jobs');
     } catch (err) {
-      setApiError(err.response?.data?.detail || 'Failed to create job posting.');
+      setApiError(err.response?.data?.message || err.response?.data?.detail || 'Failed to create job posting.');
     } finally {
       setLoading(false);
     }

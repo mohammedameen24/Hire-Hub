@@ -1,4 +1,5 @@
 const { generateStructuredJSON } = require('./geminiService');
+const { calculateMatchScoreOffline } = require('./aiFallbackEngine');
 
 async function calculateMatchScore(candidateProfile, job) {
   const candidateSkills = Array.isArray(candidateProfile?.skills)
@@ -45,29 +46,10 @@ Note: match_score must be an integer between 0 and 100.
       missing_skills: Array.isArray(result.missing_skills) ? result.missing_skills : [],
     };
   } catch (err) {
-    console.error('Match score calculation fallback:', err.message);
-    // Simple programmatic fallback if AI fails
-    const reqSkillsArr = (Array.isArray(job.skills_required) ? job.skills_required : [])
-      .flatMap((s) => String(s).split(/[\s,]+/))
-      .map((s) => s.toLowerCase())
-      .filter(Boolean);
-
-    // Expand candidate skills — split on spaces/commas in case any are multi-word entries
-    const candSkillsArr = (Array.isArray(candidateProfile?.skills) ? candidateProfile.skills : [])
-      .flatMap((s) => String(s).split(/[\s,]+/))
-      .map((s) => s.toLowerCase())
-      .filter(Boolean);
-
-    const matched = reqSkillsArr.filter((s) => candSkillsArr.some((cs) => cs.includes(s) || s.includes(cs)));
-    const missing = reqSkillsArr.filter((s) => !matched.includes(s));
-    const score = reqSkillsArr.length > 0 ? Math.round((matched.length / reqSkillsArr.length) * 100) : 70;
-
-    return {
-      match_score: score,
-      matched_skills: matched,
-      missing_skills: missing,
-    };
+    console.log('[MatchScore] Using offline algorithmic backup engine for match score calculation.');
+    return calculateMatchScoreOffline(candidateProfile, job);
   }
 }
 
 module.exports = { calculateMatchScore };
+

@@ -14,9 +14,13 @@ export default function JobSearch() {
   const [jobType, setJobType] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [fetchError, setFetchError] = useState(''); // Bug #24 fixed
 
   const fetchJobs = async (p = 1) => {
+    // Bug #26 fixed — guard prevents firing a new request while one is in flight
+    if (loading && p !== 1) return;
     setLoading(true);
+    setFetchError('');
     try {
       const res = await axiosInstance.get('/jobs', {
         params: {
@@ -30,7 +34,12 @@ export default function JobSearch() {
       setJobs(res.data.jobs || res.data || []);
       setTotalPages(res.data.total_pages || 1);
       setPage(p);
-    } catch {
+    } catch (err) {
+      // Bug #24 fixed — show a real error instead of the "No jobs found" empty state
+      setFetchError(
+        err.response?.data?.message ||
+        'Failed to load jobs. Please check your connection and try again.'
+      );
       setJobs([]);
     } finally {
       setLoading(false);
@@ -97,6 +106,14 @@ export default function JobSearch() {
         </form>
       </Card>
 
+      {/* Error banner */}
+      {fetchError && (
+        <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700 flex items-center justify-between">
+          <span>{fetchError}</span>
+          <button onClick={() => setFetchError('')} className="text-xs font-bold text-danger-800 hover:underline">Dismiss</button>
+        </div>
+      )}
+
       {/* Job listings */}
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -158,7 +175,7 @@ export default function JobSearch() {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={page <= 1}
+                disabled={page <= 1 || loading}
                 onClick={() => fetchJobs(page - 1)}
               >
                 Previous
@@ -169,7 +186,7 @@ export default function JobSearch() {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={page >= totalPages}
+                disabled={page >= totalPages || loading}
                 onClick={() => fetchJobs(page + 1)}
               >
                 Next

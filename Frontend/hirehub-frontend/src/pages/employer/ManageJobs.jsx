@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -12,6 +12,10 @@ export default function ManageJobs() {
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [editModal, setEditModal] = useState(null); // Bug #45 — edit job state
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   const fetchJobs = async () => {
     try {
@@ -29,6 +33,48 @@ export default function ManageJobs() {
   }, []);
 
   const [deleteError, setDeleteError] = useState('');
+
+  const openEditModal = (job) => {
+    setEditForm({
+      title: job.title || '',
+      location: job.location || '',
+      job_type: job.job_type || '',
+      salary: job.salary || '',
+      experience_level: job.experience_level || '',
+      description: job.description || '',
+      requirements: job.requirements || '',
+      skills_required: Array.isArray(job.skills_required)
+        ? job.skills_required.join(', ')
+        : job.skills_required || '',
+      status: job.status || 'open',
+    });
+    setEditError('');
+    setEditModal(job);
+  };
+
+  const handleEditSave = async () => {
+    if (!editModal) return;
+    setSaving(true);
+    setEditError('');
+    try {
+      const payload = {
+        ...editForm,
+        skills_required: editForm.skills_required
+          ? editForm.skills_required.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+      };
+      const res = await axiosInstance.put(`/employer/jobs/${editModal._id || editModal.id}`, payload);
+      const updated = res.data?.data || res.data;
+      setJobs((prev) =>
+        prev.map((j) => (j._id || j.id) === (editModal._id || editModal.id) ? { ...j, ...updated } : j)
+      );
+      setEditModal(null);
+    } catch (err) {
+      setEditError(err.response?.data?.message || err.response?.data?.detail || 'Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteModal) return;
@@ -99,6 +145,14 @@ export default function ManageJobs() {
                       Applicants
                     </Button>
                   </Link>
+                  {/* Bug #45 fixed — Edit button wired to PUT /api/employer/jobs/:id */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => openEditModal(job)}
+                  >
+                    Edit
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -135,6 +189,121 @@ export default function ManageJobs() {
             Delete Job
           </Button>
         </div>
+      </Modal>
+
+      {/* Edit job modal — Bug #45 fix */}
+      <Modal
+        open={!!editModal}
+        onClose={() => setEditModal(null)}
+        title="Edit Job Posting"
+        size="lg"
+      >
+        {editModal && (
+          <div className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Job Title</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Job Type</label>
+                <select
+                  value={editForm.job_type}
+                  onChange={(e) => setEditForm((p) => ({ ...p, job_type: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                >
+                  <option value="">Select type</option>
+                  <option value="full-time">Full Time</option>
+                  <option value="part-time">Part Time</option>
+                  <option value="contract">Contract</option>
+                  <option value="internship">Internship</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Salary Range</label>
+                <input
+                  type="text"
+                  value={editForm.salary}
+                  onChange={(e) => setEditForm((p) => ({ ...p, salary: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Experience Level</label>
+                <select
+                  value={editForm.experience_level}
+                  onChange={(e) => setEditForm((p) => ({ ...p, experience_level: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                >
+                  <option value="">Select level</option>
+                  <option value="entry">Entry Level</option>
+                  <option value="mid">Mid Level</option>
+                  <option value="senior">Senior Level</option>
+                  <option value="lead">Lead / Manager</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                >
+                  <option value="open">Open</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Required Skills <span className="text-slate-400 font-normal">(comma-separated)</span></label>
+                <input
+                  type="text"
+                  value={editForm.skills_required}
+                  onChange={(e) => setEditForm((p) => ({ ...p, skills_required: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea
+                  rows={4}
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500 resize-none"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Requirements</label>
+                <textarea
+                  rows={3}
+                  value={editForm.requirements}
+                  onChange={(e) => setEditForm((p) => ({ ...p, requirements: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500 resize-none"
+                />
+              </div>
+            </div>
+            {editError && (
+              <p className="text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">{editError}</p>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setEditModal(null)}>Cancel</Button>
+              <Button onClick={handleEditSave} loading={saving}>Save Changes</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

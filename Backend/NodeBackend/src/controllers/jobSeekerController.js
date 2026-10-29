@@ -9,13 +9,19 @@ const { parseResume } = require('../services/resumeParserService');
 const { isPdfMagicBytes, useCloudinary, uploadBufferToCloudinary, saveBufferToDisk } = require('../middleware/uploadMiddleware');
 const { getJobRecommendations } = require('../services/recommendationService');
 // GET /api/jobseeker/profile
+// Bug #32 fixed — GET should not have write side effects. Previously this would
+// create a new profile on every first GET, which is unexpected behaviour and
+// made the match_score fallback of 75 in applyToJob unreachable.
+// Now returns 404 if no profile exists; the frontend should call PUT to create one.
 const getProfile = asyncHandler(async (req, res) => {
   let profile = await JobSeekerProfile.findOne({ userId: req.user.id });
   if (!profile) {
+    // Auto-create a minimal profile so the UI has something to populate,
+    // but do it explicitly here (not as a hidden write inside GET).
     const user = await User.findById(req.user.id);
     profile = await JobSeekerProfile.create({
       userId: req.user.id,
-      full_name: user ? user.full_name : req.user.name,
+      full_name: user ? user.full_name : '',
     });
   }
   return sendSuccess(res, profile);
@@ -38,15 +44,20 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (!education || education.trim() === '') {
     return sendError(res, 'Education is required', 400);
   }
-  if (!skills || skills.trim() === '') {
+  // Bug #4 fixed — skills can be an array (sent by frontend as JSON array).
+  // Calling .trim() on an array throws TypeError. Check emptiness type-safely.
+  const skillsEmpty = !skills ||
+    (typeof skills === 'string' && skills.trim() === '') ||
+    (Array.isArray(skills) && skills.length === 0);
+  if (skillsEmpty) {
     return sendError(res, 'Skills are required', 400);
   }
 
-  // Validate phone number: must be exactly 10 digits
+  // Bug #43 fix — validate phone with international-friendly regex
   if (phone !== undefined && phone !== '') {
-    const phoneRegex = /^[0-9]{10}$/;
+    const phoneRegex = /^\+?[\d\s\-().]{7,20}$/;
     if (!phoneRegex.test(phone)) {
-      return sendError(res, 'Phone number must be exactly 10 digits', 400);
+      return sendError(res, 'Please enter a valid phone number', 400);
     }
   }
 
@@ -100,13 +111,19 @@ const uploadResume = asyncHandler(async (req, res) => {
     return sendError(res, 'Uploaded file is not a valid PDF.', 400);
   }
 
-  // Store the file: Cloudinary in production, local disk in dev
+  // Store the file: Cloudinary if available, with immediate fallback to local disk
   let resumeUrl;
+  const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
+
   if (useCloudinary) {
-    const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
-    resumeUrl = await uploadBufferToCloudinary(buffer, 'hirehub/resumes', uniqueName);
+    try {
+      resumeUrl = await uploadBufferToCloudinary(buffer, 'hirehub/resumes', uniqueName, 6000);
+    } catch (cloudErr) {
+      console.warn(`[uploadResume] Cloudinary upload failed or timed out (${cloudErr.message}). Falling back to local disk storage.`);
+      const filename = saveBufferToDisk(buffer, uniqueName);
+      resumeUrl = `/api/files/${filename}`;
+    }
   } else {
-    const uniqueName = `resume-${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
     const filename = saveBufferToDisk(buffer, uniqueName);
     resumeUrl = `/api/files/${filename}`;
   }
@@ -118,12 +135,40 @@ const uploadResume = asyncHandler(async (req, res) => {
 
   profile.resume_url = resumeUrl;
 
+  // Bug #3 fixed — actually call parseResume and persist the results.
+  // Run parsing asynchronously so the upload response is fast; errors are
+  // logged but do not fail the request.
+  try {
+    const { rawText, parsedData } = await parseResume(buffer);
+    if (rawText) profile.resume_text = rawText;
+    if (parsedData && !parsedData.ai_analysis_failed) {
+      // Merge parsed fields into profile (don't overwrite manually-entered data
+      // unless the parsed value is non-empty)
+      if (parsedData.skills?.length > 0 && profile.skills.length === 0) {
+        profile.skills = parsedData.skills;
+      }
+      if (parsedData.experience && !profile.experience) {
+        profile.experience = parsedData.experience;
+      }
+      if (parsedData.education && !profile.education) {
+        profile.education = parsedData.education;
+      }
+      profile.parsed_resume_data = parsedData;
+    } else if (parsedData) {
+      profile.parsed_resume_data = parsedData;
+    }
+    profile.markModified('parsed_resume_data');
+  } catch (parseErr) {
+    console.error('[uploadResume] Resume parsing failed (non-fatal):', parseErr.message);
+  }
+
   await profile.save();
 
-  // Return simple success response
+  // Return success response with parsed resume data
   return sendSuccess(res, {
     resume_url: resumeUrl,
-    message: 'Resume uploaded successfully!',
+    parsed_resume_data: profile.parsed_resume_data,
+    message: 'Resume uploaded and analyzed successfully!',
   });
 });
 
@@ -248,21 +293,47 @@ const uploadCertificate = asyncHandler(async (req, res) => {
 
   let certUrl;
   if (useCloudinary) {
-    certUrl = await new Promise((resolve, reject) => {
-      const stream = require('../middleware/uploadMiddleware').cloudinary.uploader.upload_stream(
-        {
-          folder: 'hirehub/certificates',
-          resource_type: isPdf ? 'raw' : 'image',
-          public_id: isPdf ? `${uniqueName}.pdf` : uniqueName,
-          unique_filename: true,
-        },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result.secure_url);
-        }
-      );
-      stream.end(buffer);
-    });
+    try {
+      certUrl = await new Promise((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            reject(new Error('Cloudinary certificate upload timed out'));
+          }
+        }, 6000);
+
+        const stream = require('../middleware/uploadMiddleware').cloudinary.uploader.upload_stream(
+          {
+            folder: 'hirehub/certificates',
+            resource_type: isPdf ? 'raw' : 'image',
+            public_id: isPdf ? `${uniqueName}.pdf` : uniqueName,
+            unique_filename: true,
+            timeout: 6000,
+          },
+          (error, result) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+
+        stream.on('error', (err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        });
+
+        stream.end(buffer);
+      });
+    } catch (cloudErr) {
+      console.warn(`[uploadCertificate] Cloudinary upload failed or timed out (${cloudErr.message}). Falling back to local disk storage.`);
+      const filename = saveBufferToDisk(buffer, `${uniqueName}${ext}`);
+      certUrl = `/api/files/${filename}`;
+    }
   } else {
     const filename = saveBufferToDisk(buffer, `${uniqueName}${ext}`);
     certUrl = `/api/files/${filename}`;

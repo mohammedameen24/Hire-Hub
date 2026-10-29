@@ -49,9 +49,18 @@ const upload = multer({
 /**
  * Uploads a buffer to Cloudinary and returns the secure URL.
  * Uses resource_type 'raw' for proper PDF storage.
+ * Enforces a strict timeout to prevent indefinite hanging/aborts on slow or blocked networks.
  */
-function uploadBufferToCloudinary(buffer, folder, filename) {
+function uploadBufferToCloudinary(buffer, folder, filename, timeoutMs = 6000) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Cloudinary upload timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
     const stream = cloudinary.uploader.upload_stream(
       {
         folder,
@@ -59,12 +68,24 @@ function uploadBufferToCloudinary(buffer, folder, filename) {
         public_id: filename,
         use_filename: false,
         unique_filename: true,
+        timeout: timeoutMs,
       },
       (error, result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         if (error) return reject(error);
         resolve(result.secure_url);
       }
     );
+
+    stream.on('error', (streamErr) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(streamErr);
+    });
+
     stream.end(buffer);
   });
 }

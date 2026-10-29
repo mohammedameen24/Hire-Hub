@@ -26,8 +26,11 @@ const applicationSchema = new mongoose.Schema(
     interview_time: { type: String, default: '' },
     interview_type: {
       type: String,
-      enum: ['in-person', 'video', 'phone', ''],
-      default: '',
+      // Bug #44 fixed — removed '' from enum; empty string is not a meaningful
+      // interview type. Use null as the default so unscheduled interviews have
+      // no type set, and the frontend can check for null/falsy cleanly.
+      enum: ['in-person', 'video', 'phone', null],
+      default: null,
     },
     interview_location: { type: String, default: '' },
     interview_notes: { type: String, default: '' },

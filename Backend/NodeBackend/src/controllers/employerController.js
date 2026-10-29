@@ -53,23 +53,14 @@ const updateCompany = [
       }
       profile.company_name = trimmedName;
     }
-    if (industry !== undefined) {
-      const trimmedIndustry = industry.trim();
-      if (trimmedIndustry) profile.industry = trimmedIndustry;
-    }
-    if (location !== undefined) {
-      const trimmedLocation = location.trim();
-      if (trimmedLocation) profile.location = trimmedLocation;
-    }
-    if (website !== undefined) {
-      const trimmedWebsite = website.trim();
-      if (trimmedWebsite) profile.website = trimmedWebsite;
-    }
+    // Bug #20 fixed — allow clearing optional string fields by accepting empty string.
+    // Previous code used `if (trimmedValue)` which silently ignored empty strings,
+    // making it impossible to remove a previously set value.
+    if (industry !== undefined) profile.industry = industry.trim();
+    if (location !== undefined) profile.location = location.trim();
+    if (website !== undefined) profile.website = website.trim();
     if (company_size !== undefined) profile.company_size = company_size;
-    if (description !== undefined) {
-      const trimmedDesc = description.trim();
-      if (trimmedDesc) profile.description = trimmedDesc;
-    }
+    if (description !== undefined) profile.description = description.trim();
 
     await profile.save();
     return sendSuccess(res, profile);
@@ -224,7 +215,10 @@ const getJobApplicants = asyncHandler(async (req, res) => {
         localField: 'jobSeekerId',
         foreignField: 'userId',
         as: 'profileArr',
-        pipeline: [{ $project: { full_name: 1, skills: 1, experience: 1, resume_url: 1, resume_text: 1, location: 1 } }],
+        // Bug #19 fixed — resume_text removed from projection; it is full raw text
+        // (potentially thousands of chars) that is never displayed to employers.
+        // Removing it significantly reduces payload size for jobs with many applicants.
+        pipeline: [{ $project: { full_name: 1, skills: 1, experience: 1, resume_url: 1, location: 1 } }],
       },
     },
     // FIX 18 — skip applications where the user was deleted (empty userArr)
@@ -258,16 +252,27 @@ const updateApplicantStatus = asyncHandler(async (req, res) => {
     return sendError(res, 'Invalid action status.', 400);
   }
 
-  // FIX 11 — verify the employer owns the job before updating applicant status
-  const job = await Job.findOne({ _id: jobId, employerId: req.user.id });
-  if (!job) return sendError(res, 'Job not found or unauthorized.', 404);
-
-  let app = await Application.findOne({ _id: applicantId, jobId });
-  if (!app) {
-    app = await Application.findOne({ jobSeekerId: applicantId, jobId });
+  // Find the application first (works for both route patterns)
+  let app = null;
+  if (applicantId) {
+    // Standard route: /jobs/:id/applicants/:applicantId/:action
+    // Bug #5 fix — also handles PUT /applications/:id/status where applicantId === id
+    app = await Application.findOne({ _id: applicantId });
+    if (!app && jobId) {
+      // applicantId might be jobSeekerId
+      app = await Application.findOne({ jobSeekerId: applicantId, jobId });
+    }
   }
 
   if (!app) return sendError(res, 'Application not found.', 404);
+
+  // Bug #5 fix — resolve the jobId from the application itself when the route
+  // doesn't provide it reliably (PUT /applications/:id/status pattern)
+  const resolvedJobId = app.jobId;
+
+  // Verify this employer owns the job
+  const job = await Job.findOne({ _id: resolvedJobId, employerId: req.user.id });
+  if (!job) return sendError(res, 'Job not found or unauthorized.', 404);
 
   app.status = normalizedAction;
   await app.save();
@@ -295,7 +300,19 @@ const scheduleInterview = asyncHandler(async (req, res) => {
   }
 
   app.status = 'interview';
-  if (interview_date) app.interview_date = new Date(interview_date);
+  if (interview_date) {
+    const parsedDate = new Date(interview_date);
+    // Bug #28 fixed — validate interview date is in the future (backend enforcement)
+    if (isNaN(parsedDate.getTime())) {
+      return sendError(res, 'Invalid interview date format.', 400);
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsedDate < today) {
+      return sendError(res, 'Interview date must be today or in the future.', 400);
+    }
+    app.interview_date = parsedDate;
+  }
   if (interview_time !== undefined) app.interview_time = interview_time;
   if (interview_type !== undefined) app.interview_type = interview_type;
   if (interview_location !== undefined) app.interview_location = interview_location;
@@ -307,32 +324,42 @@ const scheduleInterview = asyncHandler(async (req, res) => {
 });
 
 // GET /api/employer/candidates/:id
+// Bug #16 fixed — only employers who have at least one application from this
+// candidate on one of their jobs may view the full profile.
 const getCandidateProfile = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  let profile = await JobSeekerProfile.findOne({ userId: id });
-  let user = await User.findById(id);
+  // Resolve user + profile (id can be userId, profileId, or applicationId)
+  let user = await User.findById(id).catch(() => null);
+  let profile = user
+    ? await JobSeekerProfile.findOne({ userId: user._id })
+    : null;
 
-  if (!user && profile) {
-    user = await User.findById(profile.userId);
-  }
-
-  if (!user && !profile) {
-    // Check if id was a Profile ID instead
+  if (!user) {
     profile = await JobSeekerProfile.findById(id).catch(() => null);
-    if (profile) user = await User.findById(profile.userId);
+    if (profile) user = await User.findById(profile.userId).catch(() => null);
   }
 
-  if (!user && !profile) {
-    // Check if id was an Application ID instead
+  if (!user) {
     const app = await Application.findById(id).catch(() => null);
-    if (app && app.jobSeekerId) {
-      user = await User.findById(app.jobSeekerId);
+    if (app?.jobSeekerId) {
+      user = await User.findById(app.jobSeekerId).catch(() => null);
       profile = await JobSeekerProfile.findOne({ userId: app.jobSeekerId });
     }
   }
 
   if (!user) return sendError(res, 'Candidate not found.', 404);
+
+  // Privacy check — employer must own a job that this candidate applied to
+  const employerJobIds = await Job.find({ employerId: req.user.id }).distinct('_id');
+  const hasRelationship = await Application.exists({
+    jobSeekerId: user._id,
+    jobId: { $in: employerJobIds },
+  });
+
+  if (!hasRelationship) {
+    return sendError(res, 'Candidate not found.', 404); // 404 not 403 to avoid enumeration
+  }
 
   return sendSuccess(res, {
     _id: user._id,

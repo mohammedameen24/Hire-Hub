@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
     // FIX 2 — Brute-force lockout fields
     loginAttempts: { type: Number, default: 0, select: false },
     lockUntil: { type: Date, default: null, select: false },
+
+    // Bug #1 — Password reset token fields (hashed token + expiry, never exposed in API)
+    passwordResetToken: { type: String, default: null, select: false },
+    passwordResetExpires: { type: Date, default: null, select: false },
   },
   { timestamps: true }
 );
@@ -88,6 +92,8 @@ userSchema.set('toJSON', {
     delete ret.password;
     delete ret.loginAttempts;
     delete ret.lockUntil;
+    delete ret.passwordResetToken;
+    delete ret.passwordResetExpires;
     return ret;
   },
 });

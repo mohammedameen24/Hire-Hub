@@ -30,7 +30,8 @@ const getJobs = asyncHandler(async (req, res) => {
   }
 
   const pageNum = parseInt(page, 10) || 1;
-  const limitNum = parseInt(limit, 10) || 12;
+  // Bug #27 fixed — cap limit to prevent DoS via ?limit=100000
+  const limitNum = Math.min(parseInt(limit, 10) || 12, 100);
   const skip = (pageNum - 1) * limitNum;
 
   const totalJobs = await Job.countDocuments(filter);
