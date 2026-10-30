@@ -29,6 +29,13 @@ if (process.env.GEMINI_API_KEY) {
   console.warn('⚠️ GEMINI_API_KEY not set. AI features will use programmatic fallbacks.');
 }
 
+// Gmail notifications — optional, simulates in console if not configured
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  console.log(`✅ Gmail notifications configured (${process.env.GMAIL_USER}).`);
+} else {
+  console.log('ℹ️  Gmail sending not configured (set GMAIL_USER & GMAIL_APP_PASSWORD in .env). Email alerts will be simulated in console.');
+}
+
 // FIX 3 — Enforce minimum JWT secret strength (32 chars minimum)
 if (process.env.JWT_SECRET.length < 32) {
   console.error('❌ JWT_SECRET must be at least 32 characters long.');
@@ -49,6 +56,9 @@ module.exports = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  GMAIL_USER: process.env.GMAIL_USER,
+  GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD,
+  EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME || 'HireHub Security',
   FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
   NODE_ENV: process.env.NODE_ENV || 'development',
 };

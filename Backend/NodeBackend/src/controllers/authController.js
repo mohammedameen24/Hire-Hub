@@ -4,6 +4,12 @@ const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
+const {
+  sendLoginSuccessEmail,
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+  verifyGmailConnection,
+} = require('../services/emailService');
 
 // Shared strong password regex (mirrors frontend requirements)
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
@@ -27,6 +33,15 @@ const register = asyncHandler(async (req, res) => {
 
   const user = await User.create({ full_name, email, password, role: safeRole });
   const token = generateToken(user);
+
+  // Send welcome email asynchronously in background
+  sendWelcomeEmail({
+    to: user.email,
+    fullName: user.full_name,
+    role: user.role,
+  }).catch((err) => {
+    console.warn(`[register] Welcome email notification skipped: ${err.message}`);
+  });
 
   return sendSuccess(
     res,
@@ -82,10 +97,29 @@ const login = asyncHandler(async (req, res) => {
     return sendError(res, 'Incorrect password.', 401);
   }
 
+  // Detect if user is new (first time logging in)
+  const isFirstLogin = !user.last_login_at || (user.login_count || 0) === 0;
+  user.last_login_at = new Date();
+  user.login_count = (user.login_count || 0) + 1;
+  await user.save({ validateBeforeSave: false });
+
   // Successful login — reset counter
   await user.resetLoginAttempts();
 
   const token = generateToken(user);
+
+  // Send "Login Successful" email notification via Gmail asynchronously in background
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.socket?.remoteAddress || '127.0.0.1';
+  sendLoginSuccessEmail({
+    to: user.email,
+    fullName: user.full_name,
+    isFirstLogin,
+    loginTime: user.last_login_at,
+    ip: clientIp,
+    role: user.role,
+  }).catch((emailErr) => {
+    console.warn(`[login] Email notification skipped or failed: ${emailErr.message}`);
+  });
 
   return sendSuccess(res, {
     access_token: token,
@@ -204,13 +238,15 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
   const resetUrl = `${frontendOrigin}/reset-password?token=${rawToken}`;
 
-  // Attempt to send email if a provider is configured
-  // Replace this block with your email provider (SendGrid, Resend, Nodemailer, etc.)
-  const emailProviderConfigured = !!process.env.EMAIL_FROM && !!process.env.SENDGRID_API_KEY;
-  if (emailProviderConfigured) {
+  // Send reset email via Gmail (or log to console if Gmail not yet configured)
+  const emailConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+  if (emailConfigured) {
     try {
-      // Example — swap in your actual email service here:
-      // await sendEmail({ to: user.email, subject: 'Password Reset', html: `<a href="${resetUrl}">Reset password</a>` });
+      await sendPasswordResetEmail({
+        to: user.email,
+        fullName: user.full_name,
+        resetUrl,
+      });
       console.log(`[forgotPassword] Reset email sent to ${user.email}`);
     } catch (emailErr) {
       // If email fails, clear the token so the user can try again
@@ -269,4 +305,10 @@ const resetPassword = asyncHandler(async (req, res) => {
   return sendSuccess(res, { message: 'Password reset successfully. You can now sign in.' });
 });
 
-module.exports = { register, login, getMe, changePassword, forgotPassword, resetPassword };
+// GET /api/auth/email-status — diagnostic endpoint to check if Gmail SMTP is configured
+const getEmailStatus = asyncHandler(async (req, res) => {
+  const status = await verifyGmailConnection();
+  return sendSuccess(res, status);
+});
+
+module.exports = { register, login, getMe, changePassword, forgotPassword, resetPassword, getEmailStatus };

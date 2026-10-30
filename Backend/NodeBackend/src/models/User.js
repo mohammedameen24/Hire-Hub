@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema(
     is_active: { type: Boolean, default: true },
     is_verified: { type: Boolean, default: false },
 
+    // Tracking for new user login detection & email notifications
+    last_login_at: { type: Date, default: null },
+    login_count: { type: Number, default: 0 },
+
     // FIX 2 — Brute-force lockout fields
     loginAttempts: { type: Number, default: 0, select: false },
     lockUntil: { type: Date, default: null, select: false },

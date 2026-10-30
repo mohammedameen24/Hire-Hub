@@ -154,7 +154,28 @@ GEMINI_MODEL=gemini-flash-lite-latest
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
+
+# Gmail Email Notifications (Login alerts, welcome emails, password resets)
+GMAIL_USER=your_email@gmail.com
+GMAIL_APP_PASSWORD=your_16_char_google_app_password
+EMAIL_FROM_NAME="HireHub Security"
 ```
+
+### ✉️ Setting Up Gmail Sending (Google App Password)
+1. Go to your **[Google Account Security settings](https://myaccount.google.com/security)**.
+2. Under "How you sign in to Google", ensure **2-Step Verification** is turned **ON**.
+3. Go to **[App Passwords](https://myaccount.google.com/apppasswords)** (or search "App passwords" in the Google Account search bar).
+4. Enter an app name (e.g. `HireHub`) and click **Create**.
+5. Copy the generated **16-character password** (e.g. `abcd efgh ijkl mnop`).
+6. Paste your Gmail address and 16-character App Password into `Backend/NodeBackend/.env`:
+   ```ini
+   GMAIL_USER=your_name@gmail.com
+   GMAIL_APP_PASSWORD=abcdefghijklmnop
+   ```
+7. Test the email setup anytime with:
+   ```bash
+   node test_email.js your_test_email@gmail.com
+   ```
 
 ### Frontend (`Frontend/hirehub-frontend/.env`)
 ```ini
